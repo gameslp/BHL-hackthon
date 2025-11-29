@@ -27,9 +27,19 @@ body {
 
 /* Position Leaflet zoom controls below the search box */
 .leaflet-top.leaflet-left {
-  top: 80px !important; /* Adjust this value based on search box height */
+  top: 80px !important;
+  left: 16px !important;
 }
 
 .leaflet-control-zoom {
-  margin-left: 16px !important;
+  margin: 0 !important;
+}
+
+/* Leaflet Draw controls - align with zoom controls */
+.leaflet-draw-toolbar {
+  margin: 0 !important;
+}
+
+.leaflet-draw {
+  margin: 0 !important;
 }

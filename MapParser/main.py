@@ -36,7 +36,7 @@ def main():
     if buildings is None:
         print("No existing data found, fetching from API...")
         # buildings = fetch_buildings(bbox=(52.254, 20.5822, 52.27, 20.6359))
-        buildings = fetch_buildings(bbox=(52.119, 20.467, 52.131, 20.489))
+        buildings = fetch_buildings(bbox=(50.43138, 23.35865, 50.47084, 23.44070))
         save_to_geojson(buildings)
 
     create_map_preview(buildings)

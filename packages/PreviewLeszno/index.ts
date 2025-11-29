@@ -30,7 +30,7 @@ interface FeatureCollection {
 const ASBESTOS_COLOR = { r: 44, g: 137, b: 0 }; // #2c8900
 const COLOR_TOLERANCE = 10; // Slightly higher tolerance
 const IMG_SIZE = 256; 
-const INPUT_FILE = 'buildings.geojson';
+const INPUT_FILE = '/Users/silniczekroot/PycharmProjects/BHL-hackthon/MapParser/buildings.geojson';
 const OUTPUT_FILE = 'buildings-checked.json';
 const DEBUG_DIR = 'debug_output'; // Images will be saved here
 

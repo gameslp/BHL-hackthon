@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, useMapEvents, ZoomControl } from 'react-leaflet';
-import type { LatLngBounds } from 'leaflet';
+import { useState } from 'react';
+import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaflet';
 import { useBBoxBuildings } from '../hooks/useBuildings';
 import LocationSearch from './LocationSearch';
+import RectangleDrawer from './RectangleDrawer';
+import StatsPieChart from './StatsPieChart';
 import 'leaflet/dist/leaflet.css';
 
 interface Building {
@@ -39,60 +40,86 @@ function getBuildingColor(building: Building): string {
   return COLORS.unknown;
 }
 
-function BBoxSelector({ onBBoxSelected }: { onBBoxSelected: (bounds: LatLngBounds) => void }) {
-  useMapEvents({
-    click(e) {
-      // Simple click-based bbox selection (can be enhanced with rectangle draw tool)
-      console.log('Map clicked at:', e.latlng);
-    },
-  });
-
-  return null;
-}
-
 export default function Map() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [stats, setStats] = useState<BBoxStats | null>(null);
   const bboxMutation = useBBoxBuildings();
-  const hasFetched = useRef(false);
 
   // Default to Leszno area from example
   const defaultCenter: [number, number] = [52.123, 20.471];
   const defaultZoom = 15;
 
-  const handleFetchBuildings = async () => {
-    // Example bbox for Leszno area
-    const bbox = {
-      ne: { lat: 52.1250, lng: 20.4750 },
-      sw: { lat: 52.1200, lng: 20.4700 },
-    };
-
-    const result = await bboxMutation.mutateAsync(bbox);
-    setBuildings(result.data.buildings);
-    setStats(result.data.stats);
+  const handleBBoxDrawn = async (bbox: { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } }) => {
+    try {
+      const result = await bboxMutation.mutateAsync(bbox);
+      setBuildings(result.data.buildings);
+      setStats(result.data.stats);
+    } catch (error) {
+      console.error('Failed to fetch buildings:', error);
+      alert('Failed to fetch buildings. Please try a smaller area or try again later.');
+    }
   };
 
-  useEffect(() => {
-    // Auto-fetch on mount for demo purposes, but only once
-    if (!hasFetched.current) {
-      hasFetched.current = true;
-      handleFetchBuildings();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const handleClear = () => {
+    setBuildings([]);
+    setStats(null);
+  };
 
   return (
     <div className="relative w-full h-screen">
-      {/* Stats Panel */}
+      {/* Instructions Panel */}
+      {!stats && !bboxMutation.isPending && (
+        <div className="absolute top-4 right-4 z-[1000] bg-blue-50 border-2 border-blue-300 p-4 rounded-lg shadow-lg max-w-xs">
+          <h3 className="font-bold mb-2 text-blue-900">How to use:</h3>
+          <ol className="space-y-1 text-sm text-blue-800 list-decimal list-inside">
+            <li>Use the search bar to find a location</li>
+            <li>Click the rectangle tool (top-right)</li>
+            <li>Draw a rectangle on the map</li>
+            <li>Wait for buildings to load</li>
+          </ol>
+        </div>
+      )}
+
+      {/* Stats Panel with Pie Chart */}
       {stats && (
-        <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-lg">
-          <h3 className="font-bold mb-2">Statistics</h3>
-          <div className="space-y-1 text-sm">
-            <div>Total: {stats.total}</div>
+        <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-lg min-w-[280px]">
+          <h3 className="font-bold mb-3 text-center">Statistics</h3>
+
+          {/* Pie Chart */}
+          <StatsPieChart stats={stats} />
+
+          {/* Text Stats */}
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-1 text-sm">
+            <div className="font-semibold">Total: {stats.total}</div>
             <div className="text-red-600">Asbestos: {stats.asbestos}</div>
             <div className="text-orange-600">Potentially: {stats.potentiallyAsbestos}</div>
-            <div className="text-green-600">Clean: {stats.clean}</div>
+            {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
             <div className="text-gray-600">Unknown: {stats.unknown}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Legend */}
+      {buildings.length > 0 && (
+        <div className="absolute bottom-8 right-4 z-[1000] bg-white p-3 rounded-lg shadow-lg">
+          <h3 className="font-bold mb-2 text-sm">Legend</h3>
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.asbestos }}></div>
+              <span>Asbestos Confirmed</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.potentiallyAsbestos }}></div>
+              <span>Potentially Asbestos</span>
+            </div>
+            {/* <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.clean }}></div>
+              <span>Clean</span>
+            </div> */}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.unknown }}></div>
+              <span>Building Unknown</span>
+            </div>
           </div>
         </div>
       )}
@@ -118,10 +145,14 @@ export default function Map() {
         />
 
         {/* Zoom control positioned below the search box */}
-        <ZoomControl position="topleft" />
 
         <LocationSearch />
-        <BBoxSelector onBBoxSelected={(bounds) => console.log(bounds)} />
+        <RectangleDrawer
+          onBBoxDrawn={handleBBoxDrawn}
+          onClear={handleClear}
+          isLoading={bboxMutation.isPending}
+        />
+        <ZoomControl position="topleft" />
 
         {/* Render building polygons */}
         {buildings.map((building) => {

@@ -1,14 +1,49 @@
+import torch
+import torch.nn as nn  # Wciąż potrzebne dla torch.sigmoid/softmax w postprocessingu
+import torchvision.transforms as transforms
+# Usunięto: import torchvision.models as models (niepotrzebne)
+
+import onnxruntime as ort
+import numpy as np
+import time
+
 from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel
 import requests
 from PIL import Image
 from io import BytesIO
 import math
 import os
+from typing import Optional, Dict, Any
+
+# ====================================================================
+# APLIKACJA I METADANE
+# ====================================================================
 
 app = FastAPI(title="Asbestos Detection API")
 
+# GLOBALNE KONSTANTY
 IMG_SIZE = 128
 ZOOM = 20
+
+# 1. Zmieniony typ obiektu modelu na sesję ONNX Runtime
+MODEL: Optional[ort.InferenceSession] = None 
+
+# 2. Poprawne, zsynchronizowane metadane normalizacyjne z checkpointa
+MODEL_META: Dict[str, Any] = {
+    'input_shape': (3, 128, 128),
+    'mean': [0.3616, 0.3497, 0.3882],
+    'std': [0.2406, 0.2315, 0.2276],
+}
+
+
+class PredictRequest(BaseModel):
+    centroidLat: float
+    centroidLng: float
+
+# ====================================================================
+# FUNKCJE AKWIZYCJI OBRAZU I PRZETWARZANIA WSTĘPNEGO
+# ====================================================================
 
 def lat_lng_to_pixel_in_tile(lat, lng, zoom):
     lat_rad = math.radians(lat)
@@ -41,7 +76,10 @@ def download_satellite_image(lat, lng, size=128, zoom=20):
         for j in range(tiles_needed):
             tx = x_tile - tiles_needed // 2 + i
             ty = y_tile - tiles_needed // 2 + j
-            url = f"https://mt1.google.com/vt/lyrs=s&x={tx}&y={ty}&z={zoom}"
+            
+            # Wprowadzono Cache Busting
+            timestamp = int(time.time() * 1000)
+            url = f"https://mt1.google.com/vt/lyrs=s&x={tx}&y={ty}&z={zoom}&ts={timestamp}" 
 
             try:
                 response = requests.get(url, headers=headers, timeout=30)
@@ -65,6 +103,59 @@ def download_satellite_image(lat, lng, size=128, zoom=20):
     cropped = combined_image.crop((left, top, right, bottom))
     return cropped
 
+
+# 3. NOWA FUNKCJA ŁADOWANIA SESJI ONNX
+def _load_onnx_session(path: str):
+    global MODEL
+    session_path = path.replace('.pt', '.onnx') # Oczekuj pliku .onnx
+
+    if not os.path.exists(session_path):
+        raise FileNotFoundError(f"Sesja ONNX nie znaleziona: {session_path}")
+
+    try:
+        MODEL = ort.InferenceSession(session_path)
+        return MODEL
+    except Exception as e:
+        raise RuntimeError(f'Błąd ładowania sesji ONNX: {e}')
+
+
+def get_model():
+    global MODEL
+    if MODEL is not None:
+        return MODEL
+    # Użycie ścieżki do pliku .onnx
+    onnx_file = os.path.join(os.path.dirname(__file__), '..', 'artifacts', 'asbestos_net.onnx')
+    onnx_file = os.path.normpath(onnx_file)
+    return _load_onnx_session(onnx_file)
+
+
+def _prepare_image_for_model(pil_img: Image.Image):
+    # Funkcja preprocessingowa
+    meta = MODEL_META
+    
+    input_shape = tuple(meta.get('input_shape'))
+    _, H, W = input_shape
+    if pil_img.size[::-1] != (H, W):
+        pil_img = pil_img.resize((W, H))
+        
+    x = transforms.ToTensor()(pil_img)
+
+    # Użycie wartości z MODEL_META
+    mean_tensor = torch.tensor(meta['mean'], dtype=torch.float32)
+    std_tensor = torch.tensor(meta['std'], dtype=torch.float32)
+
+    # Normalizacja (X - mu) / sigma
+    x = (x - mean_tensor[:, None, None]) / std_tensor[:, None, None]
+    
+    # Dodanie wymiaru batcha: [1, C, H, W]
+    x = x.unsqueeze(0)
+    
+    return x
+
+# ====================================================================
+# ENDPOINTY API
+# ====================================================================
+
 @app.get("/")
 async def root():
     """Root endpoint with API info."""
@@ -77,6 +168,63 @@ async def root():
         }
     }
 
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
+
+
+@app.post("/predict")
+async def predict(req: PredictRequest):
+    print(f"Received prediction request: {req}")
+    """Predict whether building at centroid has asbestos using model checkpoint."""
+    
+    try:
+        model = get_model() # Ładuje sesję ONNX Runtime
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model load error: {e}")
+
+    # download image around centroid
+    try:
+        pil_img = download_satellite_image(req.centroidLat, req.centroidLng, size=IMG_SIZE, zoom=ZOOM)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to download image: {e}")
+
+    # prepare tensor
+    try:    
+        x = _prepare_image_for_model(pil_img)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to prepare image: {e}")
+
+    # 4. KLUCZOWA ZMIANA: WNIOSKOWANIE ZA POMOCĄ ONNX RUNTIME
+    try:
+        # Konwersja tensora PyTorch na tablicę NumPy
+        input_np = x.cpu().numpy()
+        
+        # Pobranie nazwy wejścia z sesji ONNX (z eksportu: 'input')
+        input_name = model.get_inputs()[0].name
+        
+        # Wykonanie wnioskowania
+        ort_outs = model.run(None, {input_name: input_np})
+        
+        # Wynik jest tablicą NumPy logitów - konwersja na tensor PyTorch dla post-processingu
+        logits = torch.from_numpy(ort_outs[0]) 
+
+        # Post-processing (bez zmian)
+        if logits.ndim == 2 and logits.size(1) > 1:
+            probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
+            prob_asbestos = float(probs[1]) if len(probs) > 1 else float(probs[-1])
+        else:
+            prob_asbestos = float(torch.sigmoid(logits.view(-1))[0].cpu().item())
+
+        is_potential = bool(prob_asbestos >= 0.5)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model inference error (ONNX): {e}")
+
+    return {"isPotentiallyAsbestos": prob_asbestos}
 
 if __name__ == "__main__":
     import uvicorn

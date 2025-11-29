@@ -1,21 +1,23 @@
+import { checkBuildingForAsbestos, batchCheckBuildings } from '@repo/asbestos-checker';
+
 /**
  * Service for checking if a building is in the asbestos database.
- * TODO: Integrate with actual asbestos database check script from packages/PreviewLeszno
- * For now, this is a placeholder implementation.
+ * Integrated with the Polish asbestos database WMS service.
  */
 export class AsbestosCheckService {
   /**
    * Check if building at given coordinates is in asbestos database
-   * @param polygon - Building polygon coordinates
+   * @param polygon - Building polygon coordinates [[lng, lat], ...]
    * @returns true if building has asbestos, false otherwise
    */
   static async checkIsAsbestos(polygon: number[][]): Promise<boolean> {
-    // TODO: Implement actual check using logic from packages/PreviewLeszno
-    // This should check against official asbestos database
-
-    // For now, return false (no asbestos) as placeholder
-    // In production, this would call the actual database or API
-    return false;
+    try {
+      return await checkBuildingForAsbestos(polygon);
+    } catch (error) {
+      console.error('Error checking building for asbestos:', error);
+      // Return false on error to avoid blocking the entire request
+      return false;
+    }
   }
 
   /**
@@ -24,7 +26,13 @@ export class AsbestosCheckService {
    * @returns Array of boolean results
    */
   static async batchCheckIsAsbestos(buildings: number[][][]): Promise<boolean[]> {
-    // TODO: Optimize with batch processing when available
-    return Promise.all(buildings.map(polygon => this.checkIsAsbestos(polygon)));
+    try {
+      // Use optimized batch function from asbestos-checker
+      return await batchCheckBuildings(buildings, 100); // 100ms delay between requests
+    } catch (error) {
+      console.error('Error in batch asbestos check:', error);
+      // Return all false on error
+      return buildings.map(() => false);
+    }
   }
 }

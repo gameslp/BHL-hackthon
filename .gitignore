@@ -14,6 +14,9 @@ dist
 *.log
 .DS_Store
 
+# Generated API clients
+packages/frontend/src/lib/api/generated/
+
 # Environment
 .env
 .env.local

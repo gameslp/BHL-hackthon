@@ -5,3 +5,20 @@ MapParser/building_images
 BuildingFinderModel/*.npy
 BuildingFinderModel/test
 BuildingFinderModel/train
+
+# Node.js
+node_modules
+.pnpm-store
+dist
+.next
+*.log
+.DS_Store
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.db-journal

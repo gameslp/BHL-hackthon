@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Building {
+  id                    String   @id @default(cuid())
+
+  // Geometry data - stored as JSON
+  polygon               Json     // Array of [lng, lat] pairs: [[20.4714069, 52.1233726], ...]
+  centroidLng           Float    // Longitude of centroid for spatial queries
+  centroidLat           Float    // Latitude of centroid for spatial queries
+
+  // Asbestos status
+  isAsbestos            Boolean  @default(false)
+  isPotentiallyAsbestos Boolean? // Nullable: null if not yet processed by ML model
+
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Indexes for spatial queries
+  @@index([centroidLng, centroidLat])
+  @@index([isAsbestos])
+  @@index([isPotentiallyAsbestos])
+  @@index([updatedAt])
+}

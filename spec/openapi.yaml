@@ -1,0 +1,277 @@
+openapi: 3.0.0
+info:
+  title: Asbestos Detection API
+  version: 1.0.0
+  description: API for identifying buildings with asbestos roofs using ML predictions and asbestos database
+
+servers:
+  - url: http://localhost:3000/api
+    description: Local development server
+
+paths:
+  /bbox:
+    post:
+      summary: Get buildings in bounding box area
+      description: |
+        Fetches all buildings within specified bounding box. For new buildings (not in DB):
+        - Fetches from Overpass API
+        - Checks asbestos database
+        - Calls ML service for prediction
+        - Saves to database
+        Returns all buildings with statistics.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BBoxRequest'
+      responses:
+        '200':
+          description: Successfully retrieved buildings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BBoxResponse'
+        '400':
+          description: Invalid bounding box (too large or invalid coordinates)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /buildings/{id}:
+    get:
+      summary: Get building by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Building found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildingResponse'
+        '404':
+          description: Building not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /geocode:
+    get:
+      summary: Search for address using geocoding
+      description: Forward geocoding to find coordinates for address (uses Mapbox API)
+      parameters:
+        - name: query
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Address search query
+      responses:
+        '200':
+          description: Geocoding results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GeocodeResponse'
+        '400':
+          description: Invalid query
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  schemas:
+    Coordinate:
+      type: array
+      items:
+        type: number
+      minItems: 2
+      maxItems: 2
+      description: '[longitude, latitude] pair'
+      example: [20.4714069, 52.1233726]
+
+    Polygon:
+      type: array
+      items:
+        $ref: '#/components/schemas/Coordinate'
+      description: 'Array of coordinates forming building outline'
+
+    Centroid:
+      type: object
+      properties:
+        lng:
+          type: number
+          example: 20.4713
+        lat:
+          type: number
+          example: 52.1233
+
+    Building:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 'clx1a2b3c4d5e6f7g8h9i0j1'
+        polygon:
+          $ref: '#/components/schemas/Polygon'
+        centroid:
+          $ref: '#/components/schemas/Centroid'
+        isAsbestos:
+          type: boolean
+          description: 'Whether building is in asbestos database'
+        isPotentiallyAsbestos:
+          type: boolean
+          nullable: true
+          description: 'ML model prediction (null if not yet processed)'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    BBoxRequest:
+      type: object
+      required:
+        - ne
+        - sw
+      properties:
+        ne:
+          type: object
+          required:
+            - lat
+            - lng
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+              example: 52.1250
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+              example: 20.4750
+          description: 'North-east corner of bounding box'
+        sw:
+          type: object
+          required:
+            - lat
+            - lng
+          properties:
+            lat:
+              type: number
+              minimum: -90
+              maximum: 90
+              example: 52.1200
+            lng:
+              type: number
+              minimum: -180
+              maximum: 180
+              example: 20.4700
+          description: 'South-west corner of bounding box'
+
+    BBoxStats:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: 'Total number of buildings'
+        asbestos:
+          type: integer
+          description: 'Number of buildings with confirmed asbestos'
+        potentiallyAsbestos:
+          type: integer
+          description: 'Number of buildings with ML prediction for asbestos'
+        clean:
+          type: integer
+          description: 'Number of clean buildings'
+        unknown:
+          type: integer
+          description: 'Number of buildings not yet processed by ML'
+
+    BBoxResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            buildings:
+              type: array
+              items:
+                $ref: '#/components/schemas/Building'
+            stats:
+              $ref: '#/components/schemas/BBoxStats'
+        error:
+          type: 'null'
+
+    BuildingResponse:
+      type: object
+      properties:
+        data:
+          $ref: '#/components/schemas/Building'
+        error:
+          type: 'null'
+
+    GeocodeResult:
+      type: object
+      properties:
+        placeName:
+          type: string
+          example: 'Leszno, Poland'
+        center:
+          $ref: '#/components/schemas/Coordinate'
+
+    GeocodeResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/GeocodeResult'
+        error:
+          type: 'null'
+
+    ErrorResponse:
+      type: object
+      properties:
+        data:
+          type: 'null'
+        error:
+          type: object
+          properties:
+            message:
+              type: string
+              example: 'Bounding box too large'
+            code:
+              type: string
+              example: 'BBOX_TOO_LARGE'

@@ -1,0 +1,87 @@
+{
+  "goal": "Help government officials identify buildings with asbestos roofs by combining ML model predictions with asbestos database information through an interactive map interface",
+  "users": [
+    {
+      "id": "official",
+      "description": "Government official who searches for buildings with asbestos in specific areas to plan removal operations"
+    }
+  ],
+  "entities": [
+    {
+      "id": "Building",
+      "description": "A building structure with polygon coordinates, asbestos status, and ML prediction",
+      "fields": [
+        { "name": "id", "type": "string", "description": "Unique identifier" },
+        { "name": "polygon", "type": "array", "description": "Array of coordinate pairs [[lng, lat], ...] defining building outline" },
+        { "name": "centroid", "type": "object", "description": "Center point {lng, lat} for spatial queries" },
+        { "name": "isAsbestos", "type": "boolean", "description": "Whether building is reported in asbestos database" },
+        { "name": "isPotentiallyAsbestos", "type": "boolean|null", "description": "ML model prediction for asbestos presence (null if not yet processed)" },
+        { "name": "updatedAt", "type": "datetime", "description": "Last update timestamp for cache management" },
+        { "name": "createdAt", "type": "datetime", "description": "First fetch timestamp" }
+      ]
+    },
+    {
+      "id": "BBoxRequest",
+      "description": "Bounding box query for fetching buildings in specific area",
+      "fields": [
+        { "name": "ne", "type": "object", "description": "North-east corner {lat, lng}" },
+        { "name": "sw", "type": "object", "description": "South-west corner {lat, lng}" }
+      ]
+    }
+  ],
+  "screens": [
+    {
+      "id": "map",
+      "title": "Interactive Map",
+      "description": "Main map interface showing buildings colored by asbestos status"
+    },
+    {
+      "id": "building-details",
+      "title": "Building Details",
+      "description": "Popup/panel showing detailed information about selected building"
+    }
+  ],
+  "flows": [
+    {
+      "id": "search_area",
+      "title": "Search buildings in area",
+      "steps": [
+        "User navigates to address or area on map",
+        "User draws rectangular selection on map",
+        "System validates bbox size (prevent too large queries)",
+        "System fetches buildings from Overpass API",
+        "System checks which buildings exist in database",
+        "System processes new buildings (check asbestos DB, call ML service)",
+        "System saves new buildings to database",
+        "Map displays all buildings colored by status (asbestos/potentially/clean)"
+      ]
+    },
+    {
+      "id": "view_building_details",
+      "title": "View building details",
+      "steps": [
+        "User clicks on building polygon on map",
+        "System shows popup with building details",
+        "Details include: asbestos status, ML prediction, coordinates, last update"
+      ]
+    }
+  ],
+  "externalServices": [
+    {
+      "id": "overpass-api",
+      "description": "OpenStreetMap Overpass API for fetching building data by bounding box"
+    },
+    {
+      "id": "asbestos-check-script",
+      "description": "Script from packages/PreviewLeszno for checking asbestos database"
+    },
+    {
+      "id": "ml-service",
+      "description": "Python ML service (in development) that predicts asbestos presence - will be mocked initially"
+    },
+    {
+      "id": "geocoding-service",
+      "description": "Mapbox geocoding API for address search"
+    }
+  ]
+}

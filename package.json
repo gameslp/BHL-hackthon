@@ -1,0 +1,16 @@
+{
+  "name": "asbestos-detection-app",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:backend": "pnpm --filter @repo/backend dev",
+    "dev:frontend": "pnpm --filter @repo/frontend dev",
+    "db:generate": "pnpm --filter @repo/database generate",
+    "db:migrate": "pnpm --filter @repo/database migrate",
+    "db:seed": "pnpm --filter @repo/database seed",
+    "db:studio": "pnpm --filter @repo/database studio",
+    "build": "pnpm -r build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down"
+  }
+}

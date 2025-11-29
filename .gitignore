@@ -2,3 +2,6 @@
 **/__pycache__/
 tiles/
 MapParser/building_images
+BuildingFinderModel/*.npy
+BuildingFinderModel/test
+BuildingFinderModel/train

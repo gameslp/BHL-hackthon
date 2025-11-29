@@ -1,0 +1,104 @@
+{
+  "screens": [
+    {
+      "id": "map",
+      "title": "Interactive Map - Asbestos Detection",
+      "route": "/",
+      "description": "Main screen with Leaflet map showing buildings colored by asbestos status. Users can draw bounding box to query area, search for address, and view building details.",
+      "requiredData": [
+        "buildings (from bbox query)",
+        "mapCenter",
+        "mapZoom",
+        "selectedBuilding"
+      ],
+      "actions": [
+        "drawBoundingBox",
+        "searchAddress",
+        "selectBuilding",
+        "clearSelection",
+        "panMap",
+        "zoomMap"
+      ],
+      "components": [
+        {
+          "name": "MapContainer",
+          "description": "Leaflet map component with tile layer"
+        },
+        {
+          "name": "AddressSearch",
+          "description": "Search input with Mapbox geocoding autocomplete"
+        },
+        {
+          "name": "BBoxDrawTool",
+          "description": "Rectangle drawing tool with max size validation"
+        },
+        {
+          "name": "BuildingPolygons",
+          "description": "Rendered building polygons with color coding: red (asbestos), orange (potentially asbestos), green (clean)"
+        },
+        {
+          "name": "BuildingPopup",
+          "description": "Popup showing building details when clicked"
+        },
+        {
+          "name": "StatsPanel",
+          "description": "Panel showing statistics: total buildings, asbestos count, potentially asbestos count"
+        },
+        {
+          "name": "LoadingOverlay",
+          "description": "Loading indicator during data fetch"
+        }
+      ],
+      "usedByFlows": ["search_area", "view_building_details"]
+    },
+    {
+      "id": "building-details",
+      "title": "Building Details Panel",
+      "route": null,
+      "description": "Popup or side panel component showing detailed information about selected building",
+      "requiredData": [
+        "buildingId",
+        "polygon",
+        "centroid",
+        "isAsbestos",
+        "isPotentiallyAsbestos",
+        "updatedAt"
+      ],
+      "actions": [
+        "closeDetails",
+        "copyCoordinates"
+      ],
+      "components": [
+        {
+          "name": "StatusBadge",
+          "description": "Color-coded badge showing asbestos status"
+        },
+        {
+          "name": "CoordinatesDisplay",
+          "description": "Shows centroid and polygon coordinates"
+        },
+        {
+          "name": "LastUpdateInfo",
+          "description": "Shows when building data was last updated"
+        }
+      ],
+      "usedByFlows": ["view_building_details"]
+    }
+  ],
+  "colorScheme": {
+    "asbestos": "#EF4444",
+    "potentiallyAsbestos": "#F59E0B",
+    "clean": "#10B981",
+    "unknown": "#6B7280"
+  },
+  "mapSettings": {
+    "defaultCenter": {
+      "lat": 52.123,
+      "lng": 20.471,
+      "description": "Leszno area (from PreviewLeszno example)"
+    },
+    "defaultZoom": 15,
+    "maxBBoxArea": 0.01,
+    "tileLayerUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+  }
+}

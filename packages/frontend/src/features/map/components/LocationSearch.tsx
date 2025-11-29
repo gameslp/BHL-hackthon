@@ -2,50 +2,23 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
+import { useGeocoding } from '../hooks/useGeocoding';
 
-interface SearchResult {
-  lat: string;
-  lon: string;
-  display_name: string;
-  address?: {
-    city?: string;
-    country?: string;
-  };
+interface GeocodeResult {
+  placeName: string;
+  center: [number, number]; // [lng, lat]
 }
 
 export default function LocationSearch() {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showResults, setShowResults] = useState(false);
   const map = useMap();
   const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const searchLocation = async (searchQuery: string) => {
-    if (!searchQuery.trim()) {
-      setResults([]);
-      setShowResults(false);
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Using Nominatim API for geocoding
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&limit=5`
-      );
-      const data = await response.json();
-      setResults(data);
-      setShowResults(true);
-    } catch (error) {
-      console.error('Search failed:', error);
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Use React Query hook for geocoding
+  const { data: geocodeData, isLoading, error } = useGeocoding(debouncedQuery);
+  const results = geocodeData || [];
 
   // Debounced search on input change
   useEffect(() => {
@@ -55,10 +28,11 @@ export default function LocationSearch() {
 
     if (query.trim().length > 2) {
       debounceTimer.current = setTimeout(() => {
-        searchLocation(query);
+        setDebouncedQuery(query);
+        setShowResults(true);
       }, 500); // 500ms debounce
     } else {
-      setResults([]);
+      setDebouncedQuery('');
       setShowResults(false);
     }
 
@@ -71,22 +45,22 @@ export default function LocationSearch() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
-    if (query.trim()) {
-      searchLocation(query);
+    if (query.trim().length > 2) {
+      setDebouncedQuery(query);
+      setShowResults(true);
     }
   };
 
-  const handleSelectLocation = (result: SearchResult) => {
-    const lat = parseFloat(result.lat);
-    const lon = parseFloat(result.lon);
+  const handleSelectLocation = (result: GeocodeResult) => {
+    const [lng, lat] = result.center;
 
     // Fly to the selected location
-    map.flyTo([lat, lon], 15, {
+    map.flyTo([lat, lng], 15, {
       duration: 1.5,
     });
 
     setShowResults(false);
-    setQuery(result.display_name);
+    setQuery(result.placeName);
   };
 
   return (
@@ -121,16 +95,17 @@ export default function LocationSearch() {
                 className="w-full text-left px-4 py-3 hover:bg-gray-100 border-b border-gray-100 last:border-b-0 transition-colors"
               >
                 <div className="font-medium text-sm text-gray-900">
-                  {result.display_name}
+                  {result.placeName}
                 </div>
-                {result.address && (
-                  <div className="text-xs text-gray-500 mt-1">
-                    {result.address.city && `${result.address.city}, `}
-                    {result.address.country}
-                  </div>
-                )}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Error Message */}
+        {showResults && error && (
+          <div className="absolute top-full mt-2 w-full bg-white rounded-lg shadow-lg border border-red-200 px-4 py-3">
+            <p className="text-sm text-red-500">Failed to search location. Please try again.</p>
           </div>
         )}
 

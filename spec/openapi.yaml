@@ -33,7 +33,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/BBoxResponse'
         '400':
-          description: Invalid bounding box (too large or invalid coordinates)
+          description: Invalid bounding box (too large - max ~2km × 2km, or invalid coordinates)
           content:
             application/json:
               schema:

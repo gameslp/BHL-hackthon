@@ -26,14 +26,15 @@ export const BBoxRequestSchema = z.object({
   }
 ).refine(
   (data) => {
-    // Calculate area and ensure it's not too large (max 0.01 deg^2)
+    // Calculate area and ensure it's not too large (max ~2km × 2km)
+    // At 52°N (Leszno): 0.0005 deg² ≈ 2.2km × 1.4km ≈ 3.1 km²
     const latDiff = data.ne.lat - data.sw.lat;
     const lngDiff = data.ne.lng - data.sw.lng;
     const area = latDiff * lngDiff;
-    return area <= 0.01;
+    return area <= 0.0005;
   },
   {
-    message: 'Bounding box area too large (max 0.01 deg²)',
+    message: 'Bounding box area too large (max ~2km × 2km)',
   }
 );
 

@@ -3,11 +3,11 @@ from overpass_fetcher import fetch_buildings
 from map_visualizer import create_map_preview
 import geopandas as gpd
 import os
-from image_renderer import render_satellite_image, render_individual_buildings
-from tile_generator import generate_tiles
+# from image_renderer import render_satellite_image, render_individual_buildings
+# from tile_generator import generate_tiles
 
 
-def save_to_geojson(gdf, output_path="buildings-checked.geojson"):
+def save_to_geojson(gdf, output_path="buildings.geojson"):
     if gdf is None or gdf.empty:
         print("No buildings to save")
         return
@@ -31,13 +31,17 @@ def main():
 
     # Option 2: Fetch from Overpass API
     # bbox format: (south, west, north, east)
-    buildings = fetch_buildings(bbox=(52.254, 20.5822, 52.27, 20.6359))
+    buildings = load_from_geojson("buildings-checked.json")
 
-    save_to_geojson(buildings)
+    if buildings is None:
+        print("No existing data found, fetching from API...")
+        buildings = fetch_buildings(bbox=(52.254, 20.5822, 52.27, 20.6359))
+        save_to_geojson(buildings)
+
     create_map_preview(buildings)
 
     # Render satellite imagery
-    render_satellite_image(buildings)
+    # render_satellite_image(buildings)
 
     # Generate 128x128 tiles with masks
     # generate_tiles(buildings, tile_size=128, output_dir="tiles")

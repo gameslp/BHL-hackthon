@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, useMapEvents } from 'react-leaflet';
+import { useEffect, useState, useRef } from 'react';
+import { MapContainer, TileLayer, Polygon, Popup, useMapEvents, ZoomControl } from 'react-leaflet';
 import type { LatLngBounds } from 'leaflet';
 import { useBBoxBuildings } from '../hooks/useBuildings';
+import LocationSearch from './LocationSearch';
 import 'leaflet/dist/leaflet.css';
 
 interface Building {
@@ -53,6 +54,7 @@ export default function Map() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [stats, setStats] = useState<BBoxStats | null>(null);
   const bboxMutation = useBBoxBuildings();
+  const hasFetched = useRef(false);
 
   // Default to Leszno area from example
   const defaultCenter: [number, number] = [52.123, 20.471];
@@ -71,8 +73,12 @@ export default function Map() {
   };
 
   useEffect(() => {
-    // Auto-fetch on mount for demo purposes
-    handleFetchBuildings();
+    // Auto-fetch on mount for demo purposes, but only once
+    if (!hasFetched.current) {
+      hasFetched.current = true;
+      handleFetchBuildings();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (
@@ -103,12 +109,18 @@ export default function Map() {
         center={defaultCenter}
         zoom={defaultZoom}
         className="w-full h-full"
+        key="main-map"
+        zoomControl={false}
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
+        {/* Zoom control positioned below the search box */}
+        <ZoomControl position="topleft" />
+
+        <LocationSearch />
         <BBoxSelector onBBoxSelected={(bounds) => console.log(bounds)} />
 
         {/* Render building polygons */}

@@ -1,6 +1,8 @@
 from osm_parser import parse_osm_file
 from overpass_fetcher import fetch_buildings
 from map_visualizer import create_map_preview
+from image_renderer import render_satellite_image, render_individual_buildings
+from tile_generator import generate_tiles
 
 
 def save_to_geojson(gdf, output_path="buildings.geojson"):
@@ -22,6 +24,15 @@ def main():
 
     save_to_geojson(buildings)
     create_map_preview(buildings)
+
+    # Render satellite imagery
+    render_satellite_image(buildings)
+
+    # Generate 128x128 tiles with masks
+    generate_tiles(buildings, tile_size=128, output_dir="tiles")
+
+    # Render individual buildings (uncomment to use - creates many files)
+    # render_individual_buildings(buildings, output_dir="building_images")
 
 
 if __name__ == "__main__":

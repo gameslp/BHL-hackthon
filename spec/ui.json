@@ -98,7 +98,7 @@
       "description": "Leszno area (from PreviewLeszno example)"
     },
     "defaultZoom": 15,
-    "maxBBoxArea": 0.01,
+    "maxBBoxArea": 0.0005,
     "tileLayerUrl": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
   }
 }

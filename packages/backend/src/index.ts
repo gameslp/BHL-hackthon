@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import app from './app';
 
+// Load .env from the backend package directory
+// When running from packages/backend, .env is in the same directory
 dotenv.config();
 
 const PORT = process.env.PORT || 3000;

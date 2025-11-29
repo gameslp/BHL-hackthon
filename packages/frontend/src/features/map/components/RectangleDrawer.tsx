@@ -133,7 +133,8 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
   return (
     <>
       {hasRectangle && (
-        <div className="absolute top-[152px] left-4 z-[1000]">
+        // <div className="absolute top-[152px] left-12 z-[1000]">
+        <div className="absolute top-20 left-14 z-[1000]">
           <button
             onClick={handleClearClick}
             disabled={isLoading}

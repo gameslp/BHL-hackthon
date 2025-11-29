@@ -11,38 +11,43 @@ def create_map_preview(gdf, output_html="buildings_map.html"):
     center_lat = (bounds[1] + bounds[3]) / 2
     center_lon = (bounds[0] + bounds[2]) / 2
 
-    m = folium.Map(location=[center_lat, center_lon], zoom_start=15)
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=17,
+        tiles='https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attr='Esri'
+    )
 
     building_colors = {
-        'house': '#3388ff',
-        'detached': '#3388ff',
-        'residential': '#3388ff',
-        'apartments': '#4488ff',
-        'bungalow': '#3388ff',
-        'garage': '#888888',
-        'office': '#ff8833',
-        'commercial': '#ff8833',
-        'retail': '#ff8833',
-        'industrial': '#cc3333',
-        'warehouse': '#cc3333',
-        'school': '#33cc33',
-        'kindergarten': '#33cc33',
+        'house': '#ffff00',
+        'detached': '#ffff00',
+        'residential': '#ffff00',
+        'apartments': '#ffaa00',
+        'bungalow': '#ffff00',
+        'garage': '#ffffff',
+        'office': '#ff00ff',
+        'commercial': '#ff00ff',
+        'retail': '#ff00ff',
+        'industrial': '#ff0000',
+        'warehouse': '#ff0000',
+        'school': '#00ff00',
+        'kindergarten': '#00ff00',
         'hospital': '#ff3333',
-        'church': '#8833ff',
-        'yes': '#999999'
+        'church': '#00ffff',
+        'yes': '#ffffff'
     }
 
     for idx, row in gdf.iterrows():
         building_type = row['building']
-        color = building_colors.get(building_type, '#999999')
+        color = building_colors.get(building_type, '#ffffff')
 
         folium.GeoJson(
             row['geometry'],
             style_function=lambda x, color=color: {
                 'fillColor': color,
                 'color': color,
-                'weight': 2,
-                'fillOpacity': 0.5
+                'weight': 3,
+                'fillOpacity': 0.3
             },
             tooltip=f"Type: {building_type}"
         ).add_to(m)

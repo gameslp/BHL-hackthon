@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaf
 import { useBBoxBuildings } from '../hooks/useBuildings';
 import LocationSearch from './LocationSearch';
 import RectangleDrawer from './RectangleDrawer';
+import StatsPieChart from './StatsPieChart';
 import 'leaflet/dist/leaflet.css';
 
 interface Building {
@@ -79,15 +80,20 @@ export default function Map() {
         </div>
       )}
 
-      {/* Stats Panel */}
+      {/* Stats Panel with Pie Chart */}
       {stats && (
-        <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-lg">
-          <h3 className="font-bold mb-2">Statistics</h3>
-          <div className="space-y-1 text-sm">
-            <div>Total: {stats.total}</div>
+        <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-lg min-w-[280px]">
+          <h3 className="font-bold mb-3 text-center">Statistics</h3>
+
+          {/* Pie Chart */}
+          <StatsPieChart stats={stats} />
+
+          {/* Text Stats */}
+          <div className="mt-3 pt-3 border-t border-gray-200 space-y-1 text-sm">
+            <div className="font-semibold">Total: {stats.total}</div>
             <div className="text-red-600">Asbestos: {stats.asbestos}</div>
             <div className="text-orange-600">Potentially: {stats.potentiallyAsbestos}</div>
-            <div className="text-green-600">Clean: {stats.clean}</div>
+            {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
             <div className="text-gray-600">Unknown: {stats.unknown}</div>
           </div>
         </div>
@@ -106,13 +112,13 @@ export default function Map() {
               <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.potentiallyAsbestos }}></div>
               <span>Potentially Asbestos</span>
             </div>
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.clean }}></div>
               <span>Clean</span>
-            </div>
+            </div> */}
             <div className="flex items-center gap-2">
               <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.unknown }}></div>
-              <span>Unknown</span>
+              <span>Building Unknown</span>
             </div>
           </div>
         </div>

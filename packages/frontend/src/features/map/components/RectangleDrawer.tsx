@@ -48,7 +48,7 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
           marker: false,
           circlemarker: false,
         },
-        edit: false, // Disable all edit controls
+        // edit: false, // Disable all edit controls
       });
 
       map.addControl(drawControl);
@@ -134,7 +134,7 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
     <>
       {hasRectangle && (
         // <div className="absolute top-[152px] left-12 z-[1000]">
-        <div className="absolute top-20 left-14 z-[1000]">
+        <div className="absolute top-20 left-14 z-[500]">
           <button
             onClick={handleClearClick}
             disabled={isLoading}

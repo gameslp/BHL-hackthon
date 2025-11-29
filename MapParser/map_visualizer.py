@@ -39,7 +39,14 @@ def create_map_preview(gdf, output_html="buildings_map.html"):
 
     for idx, row in gdf.iterrows():
         building_type = row['building']
-        color = building_colors.get(building_type, '#ffffff')
+
+        # Check if building has asbestos - override color if true
+        if 'isAsbestos' in row and row['isAsbestos'] == True:
+            color = '#ff6600'  # Orange color for asbestos buildings
+            tooltip_text = f"Type: {building_type} (ASBESTOS)"
+        else:
+            color = building_colors.get(building_type, '#ffffff')
+            tooltip_text = f"Type: {building_type}"
 
         folium.GeoJson(
             row['geometry'],
@@ -49,7 +56,7 @@ def create_map_preview(gdf, output_html="buildings_map.html"):
                 'weight': 3,
                 'fillOpacity': 0.3
             },
-            tooltip=f"Type: {building_type}"
+            tooltip=tooltip_text
         ).add_to(m)
 
     m.save(output_html)

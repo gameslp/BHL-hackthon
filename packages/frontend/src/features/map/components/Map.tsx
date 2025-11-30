@@ -101,12 +101,15 @@ export default function Map() {
       })));
 
       // Merge addresses with buildings
-      const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => ({
+      const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => {
+        var parsed = (addresses[index].address as string).split(', ');
+        return {
         ...building,
-        address: addresses?.[index]?.address || null,
-        city: addresses?.[index]?.city || null,
-        country: addresses?.[index]?.country || null,
-      }));
+        address: parsed[0] || null,
+        city: parsed[1] || null,
+        voivodeship: parsed[2] || null,
+      }});
+      
 
       setBuildings(buildingsWithAddresses);
     } catch (error) {
@@ -121,10 +124,10 @@ export default function Map() {
     setCurrentBBox(null);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (stats) {
       try {
-        exportTerrainReport(buildings, stats, currentBBox || undefined);
+        await exportTerrainReport(buildings, stats, currentBBox || undefined);
         toast.success('PDF report downloaded successfully!', {
           icon: '📄',
         });

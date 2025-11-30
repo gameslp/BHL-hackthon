@@ -11,7 +11,7 @@ interface Building {
   updatedAt?: string;
   address?: string | null;
   city?: string | null;
-  country?: string | null;
+  voivodeship?: string | null;
 }
 
 interface BBoxStats {
@@ -22,22 +22,54 @@ interface BBoxStats {
   unknown?: number;
 }
 
-export function exportTerrainReport(
+async function loadFont(doc: jsPDF) {
+  try {
+    const loadFile = async (url: string, filename: string, fontName: string, style: string) => {
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Failed to load font ' + filename);
+      const blob = await response.blob();
+      return new Promise<void>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = (reader.result as string).split(',')[1];
+          doc.addFileToVFS(filename, base64data);
+          doc.addFont(filename, fontName, style);
+          resolve();
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    };
+
+    await Promise.all([
+      loadFile('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Regular.ttf', 'Roboto-Regular.ttf', 'Roboto', 'normal'),
+      loadFile('https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.66/fonts/Roboto/Roboto-Medium.ttf', 'Roboto-Medium.ttf', 'Roboto', 'bold')
+    ]);
+    
+    doc.setFont('Roboto');
+  } catch (error) {
+    console.warn('Could not load custom font, falling back to default', error);
+  }
+}
+
+export async function exportTerrainReport(
   buildings: Building[],
   stats: BBoxStats,
   bbox?: { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } }
 ) {
   const doc = new jsPDF();
+  await loadFont(doc);
   const pageWidth = doc.internal.pageSize.getWidth();
 
   // Title
   doc.setFontSize(20);
-  doc.setFont('helvetica', 'bold');
+  const fontName = doc.getFontList()['Roboto'] ? 'Roboto' : 'helvetica';
+  doc.setFont(fontName, 'bold');
   doc.text('Asbestos Detection Report', pageWidth / 2, 20, { align: 'center' });
 
   // Date
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.text(`Generated: ${new Date().toLocaleString()}`, pageWidth / 2, 28, { align: 'center' });
 
   // Area Info
@@ -55,30 +87,30 @@ export function exportTerrainReport(
 
   // Summary Section
   doc.setFontSize(14);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'bold');
   doc.text('Summary Statistics', 14, 45);
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
 
   const summaryData = [
     ['Total Buildings', stats.total?.toString() || '0'],
-    ['Asbestos Confirmed', stats.asbestos?.toString() || '0', '🔴'],
-    ['Potentially Asbestos', stats.potentiallyAsbestos?.toString() || '0', '🟠'],
-    ['Unknown Status', stats.unknown?.toString() || '0', '⚪'],
+    ['Asbestos Confirmed', stats.asbestos?.toString() || '0'],
+    ['Potentially Asbestos', stats.potentiallyAsbestos?.toString() || '0'],
+    ['Unknown Status', stats.unknown?.toString() || '0'],
   ];
 
   autoTable(doc, {
     startY: 50,
-    head: [['Category', 'Count', 'Status']],
+    head: [['Category', 'Count']],
     body: summaryData,
     theme: 'grid',
-    headStyles: { fillColor: [66, 139, 202] },
+    headStyles: { fillColor: [66, 139, 202], font: fontName, fontStyle: 'bold' },
+    bodyStyles: { font: fontName, fontStyle: 'normal' },
     columnStyles: {
       0: { cellWidth: 80 },
       1: { cellWidth: 40, halign: 'center' },
-      2: { cellWidth: 30, halign: 'center' },
-    },
+   },
   });
 
   // Risk Assessment
@@ -101,17 +133,17 @@ export function exportTerrainReport(
   const finalY = (doc as any).lastAutoTable.finalY || 50;
 
   doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'bold');
   doc.text('Risk Assessment', 14, finalY + 15);
 
   doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.text(`Risk Level: `, 14, finalY + 23);
   doc.setTextColor(...riskColor);
-  doc.setFont('helvetica', 'bold');
+  doc.setFont(fontName, 'bold');
   doc.text(riskLevel, 42, finalY + 23);
   doc.setTextColor(0);
-  doc.setFont('helvetica', 'normal');
+  doc.setFont(fontName, 'normal');
   doc.text(`(${riskPercentage}% of buildings have asbestos concerns)`, 60, finalY + 23);
 
   // Problematic Buildings Section
@@ -121,31 +153,36 @@ export function exportTerrainReport(
 
   if (problematicBuildings.length > 0) {
     doc.setFontSize(14);
-    doc.setFont('helvetica', 'bold');
+    doc.setFont(fontName, 'bold');
     doc.text('Problematic Buildings Details', 14, finalY + 35);
 
     const buildingsData = problematicBuildings.slice(0, 50).map((building, index) => {
-      const address = building.address || (building.centroid
+      const address = building.address ? 
+        (building.address + ", " + (building.city ?? "?") + ", " + (building.voivodeship?.split(" ")[0] ?? "?")) : 
+        (building.centroid
         ? `${building.centroid.lat?.toFixed(5)}, ${building.centroid.lng?.toFixed(5)}`
         : 'N/A');
 
       return [
         (index + 1).toString(),
         address,
+        building.isAsbestos ? 'No' : 'Yes',
         building.updatedAt ? new Date(building.updatedAt).toLocaleDateString() : 'N/A',
       ];
     });
 
     autoTable(doc, {
       startY: finalY + 40,
-      head: [['#', 'Address', 'Last Updated']],
+      head: [['#', 'Address', 'Predicted', 'Last Updated']],
       body: buildingsData,
       theme: 'striped',
-      headStyles: { fillColor: [244, 67, 54] },
+      headStyles: { fillColor: [244, 67, 54], font: fontName, fontStyle: 'bold' },
+      bodyStyles: { font: fontName, fontStyle: 'normal' },
       columnStyles: {
-        0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 130 },
-        2: { cellWidth: 35 },
+        0: { cellWidth: 10, halign: 'center' },
+        1: { cellWidth: 115 },
+        2: { cellWidth: 25 },
+        3: { cellWidth: 35 },
       },
     });
 

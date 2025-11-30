@@ -86,7 +86,6 @@ export default function Map() {
       );
     }
   };
-
   const fetchAddressesForBuildings = async (buildingsData: Building[]) => {
     try {
       const coordinates = buildingsData.map(b => ({
@@ -169,7 +168,7 @@ export default function Map() {
             <div className="text-red-600">Asbestos: {stats.asbestos}</div>
             <div className="text-orange-600">Potentially: {stats.potentiallyAsbestos}</div>
             {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
-            <div className="text-gray-600">Unknown: {stats.unknown}</div>
+            <div className="text-green-700">Clean: {stats.unknown}</div>
           </div>
 
           {/* Export PDF Button */}

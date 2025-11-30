@@ -97,7 +97,7 @@ export async function exportTerrainReport(
     ['Total Buildings', stats.total?.toString() || '0'],
     ['Asbestos Confirmed', stats.asbestos?.toString() || '0'],
     ['Potentially Asbestos', stats.potentiallyAsbestos?.toString() || '0'],
-    ['Unknown Status', stats.unknown?.toString() || '0'],
+    ['Clean', stats.unknown?.toString() || '0'],
   ];
 
   autoTable(doc, {

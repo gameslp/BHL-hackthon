@@ -1,16 +1,17 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import { useBBoxBuildings } from '../hooks/useBuildings';
+import { useBatchGeocode } from '../hooks/useGeocode';
 import LocationSearch from './LocationSearch';
 import RectangleDrawer from './RectangleDrawer';
 import StatsPieChart from './StatsPieChart';
 import { exportTerrainReport } from '@/lib/exportPDF';
 import 'leaflet/dist/leaflet.css';
 import Loader from '@/components/Loader';
-import type { Building, BBoxStats } from '@/lib/api/generated/types.gen';
+import type { Building, BBoxStats, BuildingWithAddress } from '@/lib/api/generated/types.gen';
 
 const COLORS = {
   asbestos: '#EF4444',        // red
@@ -27,10 +28,11 @@ function getBuildingColor(building: Building): string {
 }
 
 export default function Map() {
-  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [buildings, setBuildings] = useState<BuildingWithAddress[]>([]);
   const [stats, setStats] = useState<BBoxStats | null>(null);
   const [currentBBox, setCurrentBBox] = useState<{ ne: { lat: number; lng: number }; sw: { lat: number; lng: number } } | null>(null);
   const bboxMutation = useBBoxBuildings();
+  const geocodeMutation = useBatchGeocode();
 
   // Default to Leszno area from example
   const defaultCenter: [number, number] = [52.123, 20.471];
@@ -57,6 +59,11 @@ export default function Map() {
           icon: '🏢',
         }
       );
+
+      // Fetch addresses for buildings in background
+      if (result.data.buildings.length > 0) {
+        fetchAddressesForBuildings(result.data.buildings);
+      }
     } catch (error) {
       console.error('Failed to fetch buildings:', error);
 
@@ -76,6 +83,30 @@ export default function Map() {
           icon: '⚠️',
         }
       );
+    }
+  };
+
+  const fetchAddressesForBuildings = async (buildingsData: Building[]) => {
+    try {
+      const coordinates = buildingsData.map(b => ({
+        latitude: b.centroid.lat,
+        longitude: b.centroid.lng,
+      }));
+
+      const addresses = await geocodeMutation.mutateAsync(coordinates);
+
+      // Merge addresses with buildings
+      const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => ({
+        ...building,
+        address: addresses[index]?.address || null,
+        city: addresses[index]?.city || null,
+        country: addresses[index]?.country || null,
+      }));
+
+      setBuildings(buildingsWithAddresses);
+    } catch (error) {
+      console.error('Failed to fetch addresses:', error);
+      // Don't show error toast - addresses are optional enhancement
     }
   };
 
@@ -230,7 +261,7 @@ export default function Map() {
                   <div className="font-bold mb-2">Building Details</div>
                   <div className="text-sm space-y-1">
                     <div>
-                      Status:{' '}
+                      <span className="font-semibold">Status:</span>{' '}
                       {building.isAsbestos
                         ? 'Asbestos'
                         : building.isPotentiallyAsbestos === true
@@ -239,10 +270,22 @@ export default function Map() {
                         ? 'Clean'
                         : 'Unknown'}
                     </div>
-                    <div>
-                      Location: {building.centroid.lat.toFixed(5)}, {building.centroid.lng.toFixed(5)}
-                    </div>
-                    <div className="text-xs text-gray-500">
+                    {building.address && (
+                      <div>
+                        <span className="font-semibold">Address:</span> {building.address}
+                      </div>
+                    )}
+                    {building.city && (
+                      <div>
+                        <span className="font-semibold">City:</span> {building.city}
+                      </div>
+                    )}
+                    {!building.address && (
+                      <div>
+                        <span className="font-semibold">Coordinates:</span> {building.centroid.lat.toFixed(5)}, {building.centroid.lng.toFixed(5)}
+                      </div>
+                    )}
+                    <div className="text-xs text-gray-500 pt-1 border-t border-gray-200">
                       Updated: {new Date(building.updatedAt).toLocaleString()}
                     </div>
                   </div>

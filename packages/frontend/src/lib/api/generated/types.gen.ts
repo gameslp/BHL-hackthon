@@ -38,6 +38,21 @@ export type Building = {
     updatedAt: string;
 };
 
+export type BuildingWithAddress = Building & {
+    /**
+     * Full address from reverse geocoding
+     */
+    address?: string | null;
+    /**
+     * City name from reverse geocoding
+     */
+    city?: string | null;
+    /**
+     * Country name from reverse geocoding
+     */
+    country?: string | null;
+};
+
 export type BBoxRequest = {
     /**
      * North-east corner of bounding box
@@ -99,6 +114,40 @@ export type GeocodeResult = {
 export type GeocodeResponse = {
     data?: {
         results?: Array<GeocodeResult>;
+    };
+    error?: unknown;
+};
+
+export type BatchGeocodeRequest = {
+    /**
+     * Array of coordinates to reverse geocode (max 1000)
+     */
+    coordinates: Array<{
+        latitude: number;
+        longitude: number;
+    }>;
+};
+
+export type ReverseGeocodeResult = {
+    latitude?: number;
+    longitude?: number;
+    /**
+     * Full address or null if not found
+     */
+    address?: string | null;
+    /**
+     * City name or null if not found
+     */
+    city?: string | null;
+    /**
+     * Country name or null if not found
+     */
+    country?: string | null;
+};
+
+export type BatchGeocodeResponse = {
+    data?: {
+        results?: Array<ReverseGeocodeResult>;
     };
     error?: unknown;
 };
@@ -204,3 +253,32 @@ export type GetGeocodeResponses = {
 };
 
 export type GetGeocodeResponse = GetGeocodeResponses[keyof GetGeocodeResponses];
+
+export type PostGeocodeBatchData = {
+    body: BatchGeocodeRequest;
+    path?: never;
+    query?: never;
+    url: '/geocode/batch';
+};
+
+export type PostGeocodeBatchErrors = {
+    /**
+     * Invalid request (invalid coordinates or too many)
+     */
+    400: ErrorResponse;
+    /**
+     * Internal server error
+     */
+    500: ErrorResponse;
+};
+
+export type PostGeocodeBatchError = PostGeocodeBatchErrors[keyof PostGeocodeBatchErrors];
+
+export type PostGeocodeBatchResponses = {
+    /**
+     * Batch geocoding results
+     */
+    200: BatchGeocodeResponse;
+};
+
+export type PostGeocodeBatchResponse = PostGeocodeBatchResponses[keyof PostGeocodeBatchResponses];

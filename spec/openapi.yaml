@@ -105,6 +105,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /geocode/batch:
+    post:
+      summary: Batch reverse geocode coordinates to addresses
+      description: |
+        Convert multiple lat/lng coordinates to addresses using Mapbox Batch Geocoding API.
+        Supports up to 1000 coordinates per request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchGeocodeRequest'
+      responses:
+        '200':
+          description: Batch geocoding results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchGeocodeResponse'
+        '400':
+          description: Invalid request (invalid coordinates or too many)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   schemas:
     Coordinate:
@@ -166,6 +198,27 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    BuildingWithAddress:
+      allOf:
+        - $ref: '#/components/schemas/Building'
+        - type: object
+          properties:
+            address:
+              type: string
+              nullable: true
+              description: 'Full address from reverse geocoding'
+              example: 'Rynek 1, 64-100 Leszno'
+            city:
+              type: string
+              nullable: true
+              description: 'City name from reverse geocoding'
+              example: 'Leszno'
+            country:
+              type: string
+              nullable: true
+              description: 'Country name from reverse geocoding'
+              example: 'Poland'
 
     BBoxRequest:
       type: object
@@ -275,6 +328,71 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/GeocodeResult'
+        error:
+          type: 'null'
+
+    BatchGeocodeRequest:
+      type: object
+      required:
+        - coordinates
+      properties:
+        coordinates:
+          type: array
+          items:
+            type: object
+            required:
+              - latitude
+              - longitude
+            properties:
+              latitude:
+                type: number
+                minimum: -90
+                maximum: 90
+                example: 52.1233
+              longitude:
+                type: number
+                minimum: -180
+                maximum: 180
+                example: 20.4713
+          minItems: 1
+          maxItems: 1000
+          description: 'Array of coordinates to reverse geocode (max 1000)'
+
+    ReverseGeocodeResult:
+      type: object
+      properties:
+        latitude:
+          type: number
+          example: 52.1233
+        longitude:
+          type: number
+          example: 20.4713
+        address:
+          type: string
+          nullable: true
+          example: 'Rynek 1, 64-100 Leszno'
+          description: 'Full address or null if not found'
+        city:
+          type: string
+          nullable: true
+          example: 'Leszno'
+          description: 'City name or null if not found'
+        country:
+          type: string
+          nullable: true
+          example: 'Poland'
+          description: 'Country name or null if not found'
+
+    BatchGeocodeResponse:
+      type: object
+      properties:
+        data:
+          type: object
+          properties:
+            results:
+              type: array
+              items:
+                $ref: '#/components/schemas/ReverseGeocodeResult'
         error:
           type: 'null'
 

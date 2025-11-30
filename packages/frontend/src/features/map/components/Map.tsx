@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, ZoomControl, LayersControl, Pane } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import { useBBoxBuildings } from '../hooks/useBuildings';
 import { useBatchGeocode } from '../hooks/useGeocode';
@@ -18,6 +18,17 @@ const COLORS = {
   potentiallyAsbestos: '#F59E0B', // orange
   clean: '#10B981',           // green
   unknown: '#6B7280',         // gray
+};
+
+const tileUrls = {
+  standard: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution: '© OSM contributors © CARTO',
+  },
+  satelite: {
+    url: "https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=u86LQ6hm2QPhXgforzvq",
+    attribution: "© MapTiler © OpenStreetMap contributors"
+  }
 };
 
 function getBuildingColor(building: Building): string {
@@ -224,10 +235,14 @@ export default function Map() {
         key="main-map"
         zoomControl={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <LayersControl position="bottomright">
+          <LayersControl.BaseLayer name="Standard" checked>
+            <TileLayer url={tileUrls.standard.url} attribution={tileUrls.standard.attribution} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satelite">
+            <TileLayer url={tileUrls.satelite.url} attribution={tileUrls.satelite.attribution} />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
         {/* Zoom control positioned below the search box */}
 

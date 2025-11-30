@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { postBbox, getBuildingsById } from '@/lib/api/generated/sdk.gen';
+import { postBbox, getBuildingsById } from '@/lib/api/sdk';
 import type { BBoxRequest } from '@repo/validation';
 import type { Building } from '@/lib/api/generated/types.gen';
 

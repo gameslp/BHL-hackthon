@@ -5,8 +5,8 @@ info:
   description: API for identifying buildings with asbestos roofs using ML predictions and asbestos database
 
 servers:
-  - url: http://localhost:3000/api
-    description: Local development server
+  - url: ''
+    description: API server (configured via environment variable)
 
 paths:
   /bbox:

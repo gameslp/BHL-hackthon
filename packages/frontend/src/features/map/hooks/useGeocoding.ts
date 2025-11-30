@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getGeocode } from '@/lib/api/generated/sdk.gen';
+import { getGeocode } from '@/lib/api/sdk';
 
 export const useGeocoding = (query: string) => {
   return useQuery({

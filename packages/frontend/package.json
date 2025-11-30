@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start --port 3001",
     "lint": "eslint",
-    "generate:client": "openapi-ts --input ../../spec/openapi.yaml --output ./src/lib/api/generated --client @hey-api/client-fetch"
+    "generate:client": "openapi-ts && node scripts/fix-sdk-client.mjs"
   },
   "dependencies": {
     "@repo/validation": "workspace:*",

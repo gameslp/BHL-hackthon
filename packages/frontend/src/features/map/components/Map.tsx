@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, ZoomControl, LayersControl, Pane } from 'react-leaflet';
 import toast from 'react-hot-toast';
 import { useBBoxBuildings } from '../hooks/useBuildings';
 import { useBatchGeocode } from '../hooks/useGeocode';
@@ -18,6 +18,17 @@ const COLORS = {
   potentiallyAsbestos: '#F59E0B', // orange
   clean: '#10B981',           // green
   unknown: '#6B7280',         // gray
+};
+
+const tileUrls = {
+  standard: {
+    url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+    attribution: '© OSM contributors © CARTO',
+  },
+  satelite: {
+    url: "https://api.maptiler.com/maps/hybrid/{z}/{x}/{y}.jpg?key=u86LQ6hm2QPhXgforzvq",
+    attribution: "© MapTiler © OpenStreetMap contributors"
+  }
 };
 
 function getBuildingColor(building: Building): string {
@@ -153,52 +164,74 @@ export default function Map() {
     <div className="relative w-full h-screen">
       {/* Instructions Panel */}
       {!stats && !bboxMutation.isPending && (
-        <div className="absolute top-4 right-4 z-[1000] bg-blue-50 border-2 border-blue-300 p-4 rounded-lg shadow-lg max-w-xs">
-          <h3 className="font-bold mb-2 text-blue-900">How to use:</h3>
-          <ol className="space-y-1 text-sm text-blue-800 list-decimal list-inside">
-            <li>Use the search bar to find a location</li>
-            <li>Click the rectangle tool (top-right)</li>
-            <li>Draw a rectangle on the map</li>
-            <li>Wait for buildings to load</li>
+        <div className="absolute top-4 right-4 z-[1000] panel animate-fadeIn max-w-xs bg-white  box">
+          <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            How to use
+          </h3>
+          <ol className="space-y-2 text-sm text-gray-700">
+            <li className="flex gap-2">
+              <span className="text-blue-600 font-semibold flex-shrink-0">1.</span>
+              <span>Use the search bar to find a location</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-blue-600 font-semibold flex-shrink-0">2.</span>
+              <span>Click the rectangle tool (top-left)</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-blue-600 font-semibold flex-shrink-0">3.</span>
+              <span>Draw a rectangle on the map</span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-blue-600 font-semibold flex-shrink-0">4.</span>
+              <span>Wait for buildings to load</span>
+            </li>
           </ol>
         </div>
       )}
 
       {/* Stats Panel with Pie Chart */}
       {stats && (
-        <div className="absolute top-4 right-4 z-[1000] bg-white p-4 rounded-lg shadow-lg min-w-[280px]">
-          <h3 className="font-bold mb-3 text-center">Statistics</h3>
+        <div className="absolute top-4 right-4 z-[1000] panel box animate-fadeIn min-w-[300px]">
+          <h3 className="font-semibold text-gray-900 mb-4 text-center flex items-center justify-center gap-2">
+            <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Statistics
+          </h3>
 
           {/* Pie Chart */}
           <StatsPieChart stats={stats} />
 
           {/* Text Stats */}
-          <div className="mt-3 pt-3 border-t border-gray-200 space-y-1 text-sm">
-            <div className="font-semibold">Total: {stats.total}</div>
-            <div className="text-red-600">Asbestos: {stats.asbestos}</div>
-            <div className="text-orange-600">Potentially: {stats.potentiallyAsbestos}</div>
-            {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
-            <div className="text-green-700">Clean: {stats.unknown}</div>
+          <div className="mt-4 pt-4 border-t border-gray-100 space-y-2.5 text-sm">
+            <div className="flex items-center justify-between p-2 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors">
+              <span className="font-medium text-gray-700">Total Buildings</span>
+              <span className="font-bold text-gray-900 text-base">{stats.total}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-red-50 hover:bg-red-100 transition-colors">
+              <span className="font-medium text-red-700">Asbestos</span>
+              <span className="font-bold text-red-600 text-base">{stats.asbestos}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-orange-50 hover:bg-orange-100 transition-colors">
+              <span className="font-medium text-orange-700">Potentially</span>
+              <span className="font-bold text-orange-600 text-base">{stats.potentiallyAsbestos}</span>
+            </div>
+            <div className="flex items-center justify-between p-2 rounded-lg bg-green-50 hover:bg-green-100 transition-colors">
+              <span className="font-medium text-green-700">Clean</span>
+              <span className="font-bold text-green-600 text-base">{stats.unknown}</span>
+            </div>
           </div>
 
           {/* Export PDF Button */}
           <button
             onClick={handleExportPDF}
-            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-lg transition-all duration-200 flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
             </svg>
             Export PDF Report
           </button>
@@ -207,24 +240,25 @@ export default function Map() {
 
       {/* Legend */}
       {buildings.length > 0 && (
-        <div className="absolute bottom-8 right-4 z-[1000] bg-white p-3 rounded-lg shadow-lg">
-          <h3 className="font-bold mb-2 text-sm">Legend</h3>
-          <div className="space-y-1 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.asbestos }}></div>
-              <span>Asbestos Confirmed</span>
+        <div className="absolute bottom-8 right-4 z-[1000] panel animate-fadeIn">
+          <h3 className="font-semibold text-gray-900 mb-2.5 text-sm flex items-center gap-2">
+            <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />
+            </svg>
+            Legend
+          </h3>
+          <div className="space-y-2 text-xs">
+            <div className="flex items-center gap-2.5 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+              <div className="w-5 h-5 rounded-md shadow-sm" style={{ backgroundColor: COLORS.asbestos }}></div>
+              <span className="text-gray-700 font-medium">Asbestos Confirmed</span>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.potentiallyAsbestos }}></div>
-              <span>Potentially Asbestos</span>
+            <div className="flex items-center gap-2.5 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+              <div className="w-5 h-5 rounded-md shadow-sm" style={{ backgroundColor: COLORS.potentiallyAsbestos }}></div>
+              <span className="text-gray-700 font-medium">Potentially Asbestos</span>
             </div>
-            {/* <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.clean }}></div>
-              <span>Clean</span>
-            </div> */}
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.clean }}></div>
-              <span>Building Unknown</span>
+            <div className="flex items-center gap-2.5 hover:bg-gray-50 p-1.5 rounded-lg transition-colors">
+              <div className="w-5 h-5 rounded-md shadow-sm" style={{ backgroundColor: COLORS.clean }}></div>
+              <span className="text-gray-700 font-medium">Clean Building</span>
             </div>
           </div>
         </div>
@@ -241,10 +275,14 @@ export default function Map() {
         key="main-map"
         zoomControl={false}
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-        />
+        <LayersControl position="bottomright">
+          <LayersControl.BaseLayer name="Standard" checked>
+            <TileLayer url={tileUrls.standard.url} attribution={tileUrls.standard.attribution} />
+          </LayersControl.BaseLayer>
+          <LayersControl.BaseLayer name="Satelite">
+            <TileLayer url={tileUrls.satelite.url} attribution={tileUrls.satelite.attribution} />
+          </LayersControl.BaseLayer>
+        </LayersControl>
 
         {/* Zoom control positioned below the search box */}
 

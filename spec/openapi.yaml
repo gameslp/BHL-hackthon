@@ -124,6 +124,9 @@ components:
 
     Centroid:
       type: object
+      required:
+        - lng
+        - lat
       properties:
         lng:
           type: number
@@ -134,6 +137,14 @@ components:
 
     Building:
       type: object
+      required:
+        - id
+        - polygon
+        - centroid
+        - isAsbestos
+        - isPotentiallyAsbestos
+        - createdAt
+        - updatedAt
       properties:
         id:
           type: string
@@ -199,6 +210,12 @@ components:
 
     BBoxStats:
       type: object
+      required:
+        - total
+        - asbestos
+        - potentiallyAsbestos
+        - clean
+        - unknown
       properties:
         total:
           type: integer

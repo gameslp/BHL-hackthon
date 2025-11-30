@@ -10,24 +10,7 @@ import StatsPieChart from './StatsPieChart';
 import { exportTerrainReport } from '@/lib/exportPDF';
 import 'leaflet/dist/leaflet.css';
 import Loader from '@/components/Loader';
-
-interface Building {
-  id: string;
-  polygon: number[][];
-  centroid: { lng: number; lat: number };
-  isAsbestos: boolean;
-  isPotentiallyAsbestos: boolean | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
-interface BBoxStats {
-  total: number;
-  asbestos: number;
-  potentiallyAsbestos: number;
-  clean: number;
-  unknown: number;
-}
+import type { Building, BBoxStats } from '@/lib/api/generated/types.gen';
 
 const COLORS = {
   asbestos: '#EF4444',        // red
@@ -58,16 +41,16 @@ export default function Map() {
       const result = await bboxMutation.mutateAsync(bbox);
 
       // Validate result structure
-      if (!result || !result.buildings || !result.stats) {
+      if (!result.data?.buildings || !result.data?.stats) {
         throw new Error('Invalid response from server');
       }
 
-      setBuildings(result.buildings);
-      setStats(result.stats);
+      setBuildings(result.data.buildings);
+      setStats(result.data.stats);
       setCurrentBBox(bbox);
 
       // Success toast
-      const buildingCount = result.stats?.total || result.buildings.length;
+      const buildingCount = result.data.stats?.total || result.data.buildings.length;
       toast.success(
         `Successfully analyzed ${buildingCount} buildings in the selected area!`,
         {

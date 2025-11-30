@@ -27,8 +27,8 @@ export class AsbestosCheckService {
    */
   static async batchCheckIsAsbestos(buildings: number[][][]): Promise<boolean[]> {
     try {
-      // Use optimized batch function from asbestos-checker
-      return await batchCheckBuildings(buildings, 100); // 100ms delay between requests
+      // Use optimized batch function with 20 concurrent requests
+      return await batchCheckBuildings(buildings, 20);
     } catch (error) {
       console.error('Error in batch asbestos check:', error);
       // Return all false on error

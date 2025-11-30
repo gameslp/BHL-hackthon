@@ -38,8 +38,9 @@ app = FastAPI(title="Asbestos Detection API")
 # GLOBALNE KONSTANTY
 IMG_SIZE = 128
 ZOOM = 20
-MAX_WORKERS = 20
-MAX_CONCURRENT_REQUESTS = 100  # Zwiększona liczba jednoczesnych requestów
+MAX_WORKERS = 30
+MAX_CONCURRENT_REQUESTS = 50  # Optimized for CPU-bound ONNX inference
+MAX_INFERENCE_BATCH_SIZE = 32  # Max batch size for ONNX inference
 
 # 1. Zmieniony typ obiektu modelu na sesję ONNX Runtime
 MODEL: Optional[ort.InferenceSession] = None 
@@ -49,6 +50,9 @@ GLOBAL_SESSION: Optional[aiohttp.ClientSession] = None
 
 # SEMAFOR DO KONTROLI RÓWNOLEGŁOŚCI
 SEMAPHORE: Optional[asyncio.Semaphore] = None
+
+# ThreadPoolExecutor dla CPU-bound ONNX inference
+INFERENCE_EXECUTOR: Optional[ThreadPoolExecutor] = None
 
 # 2. Poprawne, zsynchronizowane metadane normalizacyjne z checkpointa
 MODEL_META: Dict[str, Any] = {
@@ -121,12 +125,18 @@ async def get_aiohttp_session():
 @app.on_event("startup")
 async def startup_event():
     """Initialize resources on startup."""
-    global SEMAPHORE
+    global SEMAPHORE, INFERENCE_EXECUTOR
     SEMAPHORE = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
     print(f"✓ Semaphore initialized with {MAX_CONCURRENT_REQUESTS} concurrent requests")
-    
+
+    # Initialize thread pool for CPU-bound inference
+    import multiprocessing
+    cpu_count = multiprocessing.cpu_count()
+    INFERENCE_EXECUTOR = ThreadPoolExecutor(max_workers=cpu_count * 2)
+    print(f"✓ Inference executor initialized with {cpu_count * 2} threads (CPU cores: {cpu_count})")
+
     await get_aiohttp_session()
-    
+
     # Preload model
     try:
         model = get_model()
@@ -140,9 +150,11 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Cleanup resources on shutdown."""
-    global GLOBAL_SESSION
+    global GLOBAL_SESSION, INFERENCE_EXECUTOR
     if GLOBAL_SESSION and not GLOBAL_SESSION.closed:
         await GLOBAL_SESSION.close()
+    if INFERENCE_EXECUTOR:
+        INFERENCE_EXECUTOR.shutdown(wait=True)
 
 
 def lat_lng_to_pixel_in_tile(lat, lng, zoom):
@@ -365,88 +377,170 @@ async def predict(req: PredictRequest):
     return {"isPotentiallyAsbestos": prob_asbestos}
 
 
+async def _download_and_prepare_image(lat: float, lng: float, idx: int) -> np.ndarray:
+    """Download and prepare a single image for inference."""
+    async with SEMAPHORE:
+        pil_img = await download_satellite_image(lat, lng, size=IMG_SIZE, zoom=ZOOM)
+        input_np = _prepare_image_for_model(pil_img)
+        return input_np
+
+
+async def _batch_inference(model: ort.InferenceSession, images: List[np.ndarray]) -> List[float]:
+    """Run batched ONNX inference with parallel batch processing."""
+
+    # Get input name once
+    input_name = model.get_inputs()[0].name
+
+    # Split into batches
+    batches = []
+    for i in range(0, len(images), MAX_INFERENCE_BATCH_SIZE):
+        batch = images[i:i + MAX_INFERENCE_BATCH_SIZE]
+        batches.append(batch)
+
+    print(f"  - Split into {len(batches)} batches of max {MAX_INFERENCE_BATCH_SIZE} images")
+
+    # Process all batches in parallel
+    loop = asyncio.get_event_loop()
+
+    async def process_batch(batch_idx: int, batch: List[np.ndarray]) -> List[float]:
+        """Process a single batch and return predictions."""
+        # Stack images into batch: [batch_size, 3, 128, 128]
+        batch_input = np.concatenate(batch, axis=0)
+
+        # Run inference in thread pool (CPU-bound operation)
+        logits = await loop.run_in_executor(
+            INFERENCE_EXECUTOR,
+            lambda bi=batch_input: model.run(None, {input_name: bi})[0]
+        )
+
+        # Post-process batch results
+        predictions = []
+        for j in range(len(batch)):
+            logit = logits[j:j+1]
+
+            if logit.ndim == 2 and logit.shape[1] > 1:
+                # Softmax
+                exp_logits = np.exp(logit - np.max(logit, axis=1, keepdims=True))
+                probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+                prob_asbestos = float(probs[0, 1] if probs.shape[1] > 1 else probs[0, -1])
+            else:
+                # Sigmoid
+                prob_asbestos = float(1.0 / (1.0 + np.exp(-logit.flatten()[0])))
+
+            predictions.append(prob_asbestos)
+
+        return predictions
+
+    # Run all batches in parallel
+    batch_tasks = [process_batch(i, batch) for i, batch in enumerate(batches)]
+    batch_results = await asyncio.gather(*batch_tasks)
+
+    # Flatten results
+    all_predictions = [pred for batch_preds in batch_results for pred in batch_preds]
+
+    return all_predictions
+
+
 @app.post("/batch_predict")
 async def batch_predict(req: BatchPredictRequest) -> BatchPredictResponse:
-    """Predict asbestos for multiple coordinates using high-performance async processing."""
-    
+    """Predict asbestos for multiple coordinates using optimized batched inference."""
+
     batch_start_time = time.time()
     batch_size = len(req.coordinates)
-    
+
     print(f"\n{'='*80}")
-    print(f"🚀 BATCH PREDICTION START")
+    print(f"🚀 BATCH PREDICTION START (OPTIMIZED)")
     print(f"{'='*80}")
     print(f"📊 Batch size: {batch_size} coordinates")
-    print(f"⚡ Max concurrent: {MAX_CONCURRENT_REQUESTS}")
-    print(f"🌐 Connection pool: 300 total, 100 per host")
-    
+    print(f"⚡ Max concurrent downloads: {MAX_CONCURRENT_REQUESTS}")
+    print(f"🧠 Inference batch size: {MAX_INFERENCE_BATCH_SIZE}")
+
     if not req.coordinates:
         raise HTTPException(status_code=400, detail="Coordinates list cannot be empty")
-    
+
     try:
-        get_model()
+        model = get_model()
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model load error: {e}")
-    
-    # Tworzenie tasków
-    tasks_start = time.time()
-    tasks = [
-        _predict_single_coordinate_with_semaphore(
-            coord.centroidLat, 
-            coord.centroidLng, 
-            coord.id,
-            idx
-        )
+
+    # PHASE 1: Download all images in parallel
+    print(f"\n📥 PHASE 1: Downloading {batch_size} satellite images...")
+    download_start = time.time()
+
+    download_tasks = [
+        _download_and_prepare_image(coord.centroidLat, coord.centroidLng, idx)
         for idx, coord in enumerate(req.coordinates)
     ]
-    tasks_creation_time = time.time() - tasks_start
-    print(f"✓ Created {len(tasks)} tasks in {tasks_creation_time:.3f}s")
-    
-    # Wykonanie wszystkich tasków równolegle
-    print(f"⏳ Processing {batch_size} predictions in parallel...")
-    gather_start = time.time()
-    results = await asyncio.gather(*tasks, return_exceptions=True)
-    gather_time = time.time() - gather_start
-    
-    print(f"\n{'='*80}")
-    print(f"📈 BATCH STATISTICS")
-    print(f"{'='*80}")
-    print(f"⏱️  Parallel execution time: {gather_time:.3f}s")
-    print(f"📊 Average time per prediction: {gather_time / batch_size:.3f}s")
-    print(f"🚀 Throughput: {batch_size / gather_time:.2f} predictions/second")
-    
-    # Konwersja wyjątków na wyniki z błędami
-    final_results = []
-    for i, result in enumerate(results):
+    download_results = await asyncio.gather(*download_tasks, return_exceptions=True)
+    download_time = time.time() - download_start
+
+    # Separate successful downloads from errors
+    prepared_images = []
+    image_indices = []
+    error_results = {}
+
+    for idx, result in enumerate(download_results):
         if isinstance(result, Exception):
-            coord = req.coordinates[i]
-            print(f"❌ [{i}] FAILED: {str(result)[:100]}")
+            error_results[idx] = str(result)
+            print(f"❌ [{idx}] Download failed: {str(result)[:80]}")
+        else:
+            prepared_images.append(result)
+            image_indices.append(idx)
+
+    print(f"✓ Downloaded {len(prepared_images)}/{batch_size} images in {download_time:.3f}s")
+
+    # PHASE 2: Batch ONNX inference
+    print(f"\n🧠 PHASE 2: Running batched ONNX inference...")
+    inference_start = time.time()
+
+    predictions = await _batch_inference(model, prepared_images)
+
+    inference_time = time.time() - inference_start
+    print(f"✓ Completed {len(predictions)} predictions in {inference_time:.3f}s")
+    print(f"  - Average inference time: {inference_time / len(predictions):.4f}s per image")
+
+    # PHASE 3: Build results
+    final_results = []
+    for idx, coord in enumerate(req.coordinates):
+        if idx in error_results:
+            # Image download failed
             final_results.append(PredictionResult(
                 centroidLat=coord.centroidLat,
                 centroidLng=coord.centroidLng,
                 id=coord.id,
                 isPotentiallyAsbestos=0.0,
                 success=False,
-                error=str(result)
+                error=error_results[idx]
             ))
         else:
-            final_results.append(result)
-    
+            # Find prediction result
+            result_idx = image_indices.index(idx)
+            final_results.append(PredictionResult(
+                centroidLat=coord.centroidLat,
+                centroidLng=coord.centroidLng,
+                id=coord.id,
+                isPotentiallyAsbestos=predictions[result_idx],
+                success=True,
+                error=None
+            ))
+
     successful = sum(1 for r in final_results if r.success)
     failed = len(final_results) - successful
-    
     total_batch_time = time.time() - batch_start_time
-    
+
     print(f"\n{'='*80}")
     print(f"✅ BATCH PREDICTION COMPLETE")
     print(f"{'='*80}")
     print(f"✅ Successful: {successful}/{batch_size} ({successful/batch_size*100:.1f}%)")
     print(f"❌ Failed: {failed}/{batch_size} ({failed/batch_size*100:.1f}%)")
-    print(f"⏱️  TOTAL BATCH TIME: {total_batch_time:.3f}s")
-    print(f"🚀 OVERALL THROUGHPUT: {batch_size / total_batch_time:.2f} predictions/second")
+    print(f"⏱️  Download time: {download_time:.3f}s")
+    print(f"⏱️  Inference time: {inference_time:.3f}s")
+    print(f"⏱️  TOTAL TIME: {total_batch_time:.3f}s")
+    print(f"🚀 THROUGHPUT: {successful / total_batch_time:.2f} predictions/second")
     print(f"{'='*80}\n")
-    
+
     return BatchPredictResponse(
         results=final_results,
         total=len(final_results),

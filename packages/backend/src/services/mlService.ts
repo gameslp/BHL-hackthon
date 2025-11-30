@@ -12,18 +12,19 @@ export class MLService {
    * @param polygon - Building polygon coordinates
    * @returns true if potentially has asbestos, false otherwise, null if service unavailable
    */
-  static async predictAsbestos(polygon: number[][]): Promise<boolean | null> {
+  static async predictAsbestos(centroid: { lng: number; lat: number }): Promise<boolean | null> {
     try {
       // Try to call real ML service if available
       const response = await axios.post(
         `${this.ML_SERVICE_URL}/predict`,
-        { polygon },
+        { centroidLng: centroid.lng, centroidLat: centroid.lat },
         { timeout: 5000 }
       );
 
-      return response.data.isPotentiallyAsbestos;
+      return response.data.isPotentiallyAsbestos > 0.6;
     } catch (error) {
       // ML service not available yet - return null (unknown)
+      console.log('ML service error:', error);
       console.warn('ML service unavailable, returning null for isPotentiallyAsbestos');
       return null;
     }
@@ -34,18 +35,20 @@ export class MLService {
    * @param buildings - Array of building polygons
    * @returns Array of predictions (true/false/null)
    */
-  static async batchPredictAsbestos(buildings: number[][][]): Promise<(boolean | null)[]> {
+  static async batchPredictAsbestos(centroids: { lng: number; lat: number }[]): Promise<(boolean | null)[]> {
     try {
       const response = await axios.post(
         `${this.ML_SERVICE_URL}/predict/batch`,
-        { buildings },
+        { coordinates: centroids.map(c => ({ centroidLng: c.lng, centroidLat: c.lat })) },
         { timeout: 10000 }
       );
 
       return response.data.predictions;
     } catch (error) {
       // Fallback to individual predictions
-      return Promise.all(buildings.map(polygon => this.predictAsbestos(polygon)));
+      return Promise.all(centroids.map(centroid => {
+        return this.predictAsbestos(centroid);
+      }));
     }
   }
 }

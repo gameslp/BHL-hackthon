@@ -51,7 +51,7 @@ export const getBuildingsInBBox = asyncHandler(async (req: Request, res: Respons
       const isAsbestos = await AsbestosCheckService.checkIsAsbestos(polygon);
 
       // Get ML prediction
-      const isPotentiallyAsbestos = await MLService.predictAsbestos(polygon);
+      const isPotentiallyAsbestos = await MLService.predictAsbestos(centroid);
 
       // Save to database
       const newBuilding = await prisma.building.create({
@@ -72,8 +72,7 @@ export const getBuildingsInBBox = asyncHandler(async (req: Request, res: Respons
   const stats = {
     total: processedBuildings.length,
     asbestos: processedBuildings.filter(b => b.isAsbestos).length,
-    potentiallyAsbestos: processedBuildings.filter(b => b.isPotentiallyAsbestos === true).length,
-    clean: processedBuildings.filter(b => !b.isAsbestos && b.isPotentiallyAsbestos === false).length,
+    potentiallyAsbestos: processedBuildings.filter(b => b.isPotentiallyAsbestos === true && b.isAsbestos === false).length,
     unknown: processedBuildings.filter(b => !b.isAsbestos && b.isPotentiallyAsbestos === null).length,
   };
 

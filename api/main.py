@@ -6,6 +6,7 @@ import torchvision.transforms as transforms
 import onnxruntime as ort
 import numpy as np
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -14,7 +15,7 @@ from PIL import Image
 from io import BytesIO
 import math
 import os
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 
 # ====================================================================
 # APLIKACJA I METADANE
@@ -25,6 +26,7 @@ app = FastAPI(title="Asbestos Detection API")
 # GLOBALNE KONSTANTY
 IMG_SIZE = 128
 ZOOM = 20
+MAX_WORKERS = 20  # Liczba wątków dla batch prediction
 
 # 1. Zmieniony typ obiektu modelu na sesję ONNX Runtime
 MODEL: Optional[ort.InferenceSession] = None 
@@ -40,6 +42,33 @@ MODEL_META: Dict[str, Any] = {
 class PredictRequest(BaseModel):
     centroidLat: float
     centroidLng: float
+
+
+class CoordinateItem(BaseModel):
+    centroidLat: float
+    centroidLng: float
+    id: Optional[str] = None  # Opcjonalne ID do identyfikacji
+
+
+class BatchPredictRequest(BaseModel):
+    coordinates: List[CoordinateItem]
+
+
+class PredictionResult(BaseModel):
+    centroidLat: float
+    centroidLng: float
+    id: Optional[str] = None
+    isPotentiallyAsbestos: float
+    success: bool
+    error: Optional[str] = None
+
+
+class BatchPredictResponse(BaseModel):
+    results: List[PredictionResult]
+    total: int
+    successful: int
+    failed: int
+
 
 # ====================================================================
 # FUNKCJE AKWIZYCJI OBRAZU I PRZETWARZANIA WSTĘPNEGO
@@ -164,6 +193,7 @@ async def root():
         "version": "1.0.0",
         "endpoints": {
             "predict": "POST /predict",
+            "batch_predict": "POST /batch_predict",
             "health": "GET /health"
         }
     }
@@ -225,6 +255,105 @@ async def predict(req: PredictRequest):
         raise HTTPException(status_code=500, detail=f"Model inference error (ONNX): {e}")
 
     return {"isPotentiallyAsbestos": prob_asbestos}
+
+
+@app.post("/batch_predict")
+async def batch_predict(req: BatchPredictRequest) -> BatchPredictResponse:
+    """Predict asbestos for multiple coordinates using parallel processing."""
+    
+    if not req.coordinates:
+        raise HTTPException(status_code=400, detail="Coordinates list cannot be empty")
+    
+    try:
+        get_model()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Model load error: {e}")
+    
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_coord = {
+            executor.submit(
+                _predict_single_coordinate,
+                coord.centroidLat,
+                coord.centroidLng,
+                coord.id
+            ): coord
+            for coord in req.coordinates
+        }
+        
+        for future in as_completed(future_to_coord):
+            try:
+                result = future.result()
+                results.append(result)
+            except Exception as e:
+                coord = future_to_coord[future]
+                results.append(PredictionResult(
+                    centroidLat=coord.centroidLat,
+                    centroidLng=coord.centroidLng,
+                    id=coord.id,
+                    isPotentiallyAsbestos=0.0,
+                    success=False,
+                    error=f"Unexpected error: {str(e)}"
+                ))
+    
+    successful = sum(1 for r in results if r.success)
+    failed = len(results) - successful
+    
+    return BatchPredictResponse(
+        results=results,
+        total=len(results),
+        successful=successful,
+        failed=failed
+    )
+
+
+def _predict_single_coordinate(lat: float, lng: float, coord_id: Optional[str] = None) -> PredictionResult:
+    """Helper function to predict for a single coordinate."""
+    try:
+        # Download image
+        pil_img = download_satellite_image(lat, lng, size=IMG_SIZE, zoom=ZOOM)
+        
+        # Prepare tensor
+        x = _prepare_image_for_model(pil_img)
+        
+        # Get model (thread-safe as ONNX Runtime sessions are thread-safe)
+        model = get_model()
+        
+        # Inference
+        input_np = x.cpu().numpy()
+        input_name = model.get_inputs()[0].name
+        ort_outs = model.run(None, {input_name: input_np})
+        logits = torch.from_numpy(ort_outs[0])
+        
+        # Post-processing
+        if logits.ndim == 2 and logits.size(1) > 1:
+            probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
+            prob_asbestos = float(probs[1]) if len(probs) > 1 else float(probs[-1])
+        else:
+            prob_asbestos = float(torch.sigmoid(logits.view(-1))[0].cpu().item())
+        
+        return PredictionResult(
+            centroidLat=lat,
+            centroidLng=lng,
+            id=coord_id,
+            isPotentiallyAsbestos=prob_asbestos,
+            success=True,
+            error=None
+        )
+    
+    except Exception as e:
+        return PredictionResult(
+            centroidLat=lat,
+            centroidLng=lng,
+            id=coord_id,
+            isPotentiallyAsbestos=0.0,
+            success=False,
+            error=str(e)
+        )
+
 
 if __name__ == "__main__":
     import uvicorn

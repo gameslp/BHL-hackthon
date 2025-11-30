@@ -47,8 +47,18 @@ export default function Map() {
         throw new Error('Invalid response from server');
       }
 
-      setBuildings(result.data.buildings);
-      setStats(result.data.stats);
+      const currentLength = buildings.length;
+      setBuildings(x => [...x, ...(result.data?.buildings ?? [])]);
+
+      
+      const newStats = result.data.stats;
+      setStats(x => ({
+        total: (x?.total || 0) + (newStats.total || 0),
+        asbestos: (x?.asbestos || 0) + (newStats.asbestos || 0),
+        potentiallyAsbestos: (x?.potentiallyAsbestos || 0) + (newStats.potentiallyAsbestos || 0),
+        unknown: (x?.unknown || 0) + (newStats.unknown || 0),
+        clean: (x?.clean || 0) + (newStats.clean || 0),
+      }));
       setCurrentBBox(bbox);
 
       // Success toast
@@ -63,7 +73,7 @@ export default function Map() {
       // Fetch addresses for buildings in background
       if (result.data.buildings.length > 0) {
         console.log('Fetching addresses for buildings...');
-        fetchAddressesForBuildings(result.data.buildings);
+        fetchAddressesForBuildings(result.data.buildings, currentLength);
       }
     } catch (error) {
       console.error('Failed to fetch buildings:', error);
@@ -86,7 +96,7 @@ export default function Map() {
       );
     }
   };
-  const fetchAddressesForBuildings = async (buildingsData: Building[]) => {
+  const fetchAddressesForBuildings = async (buildingsData: Building[], startIndex: number) => {
     try {
       const coordinates = buildingsData.map(b => ({
         latitude: b.centroid.lat,
@@ -101,7 +111,7 @@ export default function Map() {
 
       // Merge addresses with buildings
       const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => {
-        var parsed = (addresses[index].address as string).split(', ');
+        var parsed = (addresses[index].address as string)?.split(', ') ?? [];
         return {
         ...building,
         address: parsed[0] || null,
@@ -110,7 +120,7 @@ export default function Map() {
       }});
       
 
-      setBuildings(buildingsWithAddresses);
+      setBuildings(x => [...x.splice(0, startIndex), ...buildingsWithAddresses]);
     } catch (error) {
       console.error('Failed to fetch addresses:', error);
       // Don't show error toast - addresses are optional enhancement
@@ -241,7 +251,7 @@ export default function Map() {
         <LocationSearch />
         <RectangleDrawer
           onBBoxDrawn={handleBBoxDrawn}
-          onClear={handleClear}
+          onEntitiesClear={handleClear}
           isLoading={bboxMutation.isPending}
         />
         <ZoomControl position="topleft" />

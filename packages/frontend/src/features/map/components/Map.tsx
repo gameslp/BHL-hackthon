@@ -7,6 +7,7 @@ import LocationSearch from './LocationSearch';
 import RectangleDrawer from './RectangleDrawer';
 import StatsPieChart from './StatsPieChart';
 import 'leaflet/dist/leaflet.css';
+import Loader from '@/components/Loader';
 
 interface Building {
   id: string;
@@ -125,11 +126,7 @@ export default function Map() {
       )}
 
       {/* Loading indicator */}
-      {bboxMutation.isPending && (
-        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[1000] bg-blue-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          Loading buildings...
-        </div>
-      )}
+      {bboxMutation.isPending && <Loader message="Analyzing buildings in area" />}
 
       {/* Map */}
       <MapContainer

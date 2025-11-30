@@ -9,6 +9,9 @@ interface Building {
   isPotentiallyAsbestos?: boolean | null;
   createdAt?: string;
   updatedAt?: string;
+  address?: string | null;
+  city?: string | null;
+  country?: string | null;
 }
 
 interface BBoxStats {
@@ -122,45 +125,27 @@ export function exportTerrainReport(
     doc.text('Problematic Buildings Details', 14, finalY + 35);
 
     const buildingsData = problematicBuildings.slice(0, 50).map((building, index) => {
-      const status = building.isAsbestos
-        ? 'Confirmed Asbestos'
-        : 'Potentially Asbestos';
-      const location = building.centroid
+      const address = building.address || (building.centroid
         ? `${building.centroid.lat?.toFixed(5)}, ${building.centroid.lng?.toFixed(5)}`
-        : 'N/A';
+        : 'N/A');
 
       return [
         (index + 1).toString(),
-        status,
-        location,
+        address,
         building.updatedAt ? new Date(building.updatedAt).toLocaleDateString() : 'N/A',
       ];
     });
 
     autoTable(doc, {
       startY: finalY + 40,
-      head: [['#', 'Status', 'Coordinates', 'Last Updated']],
+      head: [['#', 'Address', 'Last Updated']],
       body: buildingsData,
       theme: 'striped',
       headStyles: { fillColor: [244, 67, 54] },
       columnStyles: {
         0: { cellWidth: 15, halign: 'center' },
-        1: { cellWidth: 50 },
-        2: { cellWidth: 70 },
-        3: { cellWidth: 35 },
-      },
-      didDrawCell: (data: any) => {
-        if (data.column.index === 1 && data.row.index >= 0) {
-          const text = data.cell.text[0];
-          if (text === 'Confirmed Asbestos') {
-            doc.setTextColor(244, 67, 54);
-          } else {
-            doc.setTextColor(255, 152, 0);
-          }
-        }
-      },
-      didDrawPage: () => {
-        doc.setTextColor(0);
+        1: { cellWidth: 130 },
+        2: { cellWidth: 35 },
       },
     });
 

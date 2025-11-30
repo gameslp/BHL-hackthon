@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster } from 'react-hot-toast';
 import "./globals.css";
 
 export default function RootLayout({
@@ -24,6 +25,31 @@ export default function RootLayout({
     <html lang="en">
       <body className="antialiased">
         <QueryClientProvider client={queryClient}>
+          <Toaster
+            position="top-center"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#363636',
+                color: '#fff',
+                padding: '16px',
+                borderRadius: '8px',
+                fontSize: '14px',
+              },
+              success: {
+                iconTheme: {
+                  primary: '#10B981',
+                  secondary: '#fff',
+                },
+              },
+              error: {
+                iconTheme: {
+                  primary: '#EF4444',
+                  secondary: '#fff',
+                },
+              },
+            }}
+          />
           {children}
         </QueryClientProvider>
       </body>

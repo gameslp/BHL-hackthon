@@ -9,6 +9,17 @@ export const useBBoxBuildings = () => {
       const response = await postBbox({
         body: bbox,
       });
+
+      // Check if response has error
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to fetch buildings');
+      }
+
+      // Check if data exists
+      if (!response.data) {
+        throw new Error('No data returned from server');
+      }
+
       return response.data;
     },
   });

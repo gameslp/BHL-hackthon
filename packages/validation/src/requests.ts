@@ -43,6 +43,17 @@ export const GeocodeQuerySchema = z.object({
   query: z.string().min(1).max(200),
 });
 
+// POST /geocode/batch request
+export const BatchReverseGeocodeRequestSchema = z.object({
+  coordinates: z.array(
+    z.object({
+      latitude: z.number().min(-90).max(90),
+      longitude: z.number().min(-180).max(180),
+    })
+  ).min(1).max(1000).describe('Array of coordinates to reverse geocode (max 1000)'),
+});
+
 export type BBoxRequest = z.infer<typeof BBoxRequestSchema>;
 export type GeocodeQuery = z.infer<typeof GeocodeQuerySchema>;
+export type BatchReverseGeocodeRequest = z.infer<typeof BatchReverseGeocodeRequestSchema>;
 export type Coordinate = z.infer<typeof CoordinateSchema>;

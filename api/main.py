@@ -1,7 +1,6 @@
 import torch
-import torch.nn as nn  # Wciąż potrzebne dla torch.sigmoid/softmax w postprocessingu
+import torch.nn as nn
 import torchvision.transforms as transforms
-# Usunięto: import torchvision.models as models (niepotrzebne)
 
 import onnxruntime as ort
 import numpy as np
@@ -27,10 +26,13 @@ app = FastAPI(title="Asbestos Detection API")
 # GLOBALNE KONSTANTY
 IMG_SIZE = 128
 ZOOM = 20
-MAX_WORKERS = 20  # Liczba wątków dla batch prediction
+MAX_WORKERS = 20
 
 # 1. Zmieniony typ obiektu modelu na sesję ONNX Runtime
 MODEL: Optional[ort.InferenceSession] = None 
+
+# GLOBALNA SESJA AIOHTTP (reużywalna)
+GLOBAL_SESSION: Optional[aiohttp.ClientSession] = None
 
 # 2. Poprawne, zsynchronizowane metadane normalizacyjne z checkpointa
 MODEL_META: Dict[str, Any] = {
@@ -38,6 +40,10 @@ MODEL_META: Dict[str, Any] = {
     'mean': [0.3616, 0.3497, 0.3882],
     'std': [0.2406, 0.2315, 0.2276],
 }
+
+# Prekalkulowane wartości dla szybszej normalizacji
+MEAN_NP = np.array(MODEL_META['mean'], dtype=np.float32).reshape(3, 1, 1)
+STD_NP = np.array(MODEL_META['std'], dtype=np.float32).reshape(3, 1, 1)
 
 
 class PredictRequest(BaseModel):
@@ -75,6 +81,45 @@ class BatchPredictResponse(BaseModel):
 # FUNKCJE AKWIZYCJI OBRAZU I PRZETWARZANIA WSTĘPNEGO
 # ====================================================================
 
+async def get_aiohttp_session():
+    """Get or create global aiohttp session with optimized settings."""
+    global GLOBAL_SESSION
+    if GLOBAL_SESSION is None or GLOBAL_SESSION.closed:
+        # Zwiększony connection pool i limity
+        connector = aiohttp.TCPConnector(
+            limit=100,  # Maksymalna liczba połączeń
+            limit_per_host=30,  # Maksymalna liczba połączeń na host
+            ttl_dns_cache=300  # Cache DNS na 5 minut
+        )
+        timeout = aiohttp.ClientTimeout(total=30, connect=10)
+        GLOBAL_SESSION = aiohttp.ClientSession(
+            connector=connector,
+            timeout=timeout,
+            headers={'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+        )
+    return GLOBAL_SESSION
+
+
+@app.on_event("startup")
+async def startup_event():
+    """Initialize resources on startup."""
+    await get_aiohttp_session()
+    # Preload model
+    try:
+        get_model()
+        print("Model loaded successfully")
+    except Exception as e:
+        print(f"Warning: Model not loaded on startup: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Cleanup resources on shutdown."""
+    global GLOBAL_SESSION
+    if GLOBAL_SESSION and not GLOBAL_SESSION.closed:
+        await GLOBAL_SESSION.close()
+
+
 def lat_lng_to_pixel_in_tile(lat, lng, zoom):
     lat_rad = math.radians(lat)
     n = 2.0 ** zoom
@@ -98,36 +143,29 @@ async def download_satellite_image(lat, lng, size=128, zoom=20):
     combined_size = tile_size * tiles_needed
     combined_image = Image.new('RGB', (combined_size, combined_size))
 
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    }
-
     # Przygotowanie listy kafelków do pobrania
     tiles_to_download = []
+    timestamp = int(time.time() * 1000)  # Jeden timestamp dla wszystkich
     for i in range(tiles_needed):
         for j in range(tiles_needed):
             tx = x_tile - tiles_needed // 2 + i
             ty = y_tile - tiles_needed // 2 + j
-            timestamp = int(time.time() * 1000)
             url = f"https://mt1.google.com/vt/lyrs=s&x={tx}&y={ty}&z={zoom}&ts={timestamp}"
             tiles_to_download.append((url, i, j))
 
-    # Asynchroniczne pobieranie wszystkich kafelków
-    async with aiohttp.ClientSession(headers=headers) as session:
-        tasks = []
-        for url, i, j in tiles_to_download:
-            tasks.append(_download_tile(session, url, i, j, tile_size))
-        
-        tile_results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Wklejanie pobranych kafelków
-        for result in tile_results:
-            if isinstance(result, Exception):
-                print(f"Error downloading tile: {result}")
-                continue
-            if result is not None:
-                tile_img, i, j = result
-                combined_image.paste(tile_img, (i * tile_size, j * tile_size))
+    # Użycie globalnej sesji
+    session = await get_aiohttp_session()
+    tasks = [_download_tile(session, url, i, j, tile_size) for url, i, j in tiles_to_download]
+    tile_results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Wklejanie pobranych kafelków
+    for result in tile_results:
+        if isinstance(result, Exception):
+            print(f"Error downloading tile: {result}")
+            continue
+        if result is not None:
+            tile_img, i, j = result
+            combined_image.paste(tile_img, (i * tile_size, j * tile_size))
 
     center_x = (tiles_needed // 2) * tile_size + pixel_x
     center_y = (tiles_needed // 2) * tile_size + pixel_y
@@ -145,7 +183,7 @@ async def download_satellite_image(lat, lng, size=128, zoom=20):
 async def _download_tile(session: aiohttp.ClientSession, url: str, i: int, j: int, tile_size: int):
     """Helper function to download a single tile asynchronously."""
     try:
-        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+        async with session.get(url) as response:
             response.raise_for_status()
             content = await response.read()
             tile_img = Image.open(BytesIO(content))
@@ -159,13 +197,22 @@ async def _download_tile(session: aiohttp.ClientSession, url: str, i: int, j: in
 # 3. NOWA FUNKCJA ŁADOWANIA SESJI ONNX
 def _load_onnx_session(path: str):
     global MODEL
-    session_path = path.replace('.pt', '.onnx') # Oczekuj pliku .onnx
+    session_path = path.replace('.pt', '.onnx')
 
     if not os.path.exists(session_path):
         raise FileNotFoundError(f"Sesja ONNX nie znaleziona: {session_path}")
 
     try:
-        MODEL = ort.InferenceSession(session_path)
+        # Optymalizacja sesji ONNX
+        sess_options = ort.SessionOptions()
+        sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_ALL
+        sess_options.intra_op_num_threads = 4  # Dostosuj do liczby rdzeni CPU
+        
+        MODEL = ort.InferenceSession(
+            session_path,
+            sess_options=sess_options,
+            providers=['CPUExecutionProvider']  # Można dodać 'CUDAExecutionProvider' dla GPU
+        )
         return MODEL
     except Exception as e:
         raise RuntimeError(f'Błąd ładowania sesji ONNX: {e}')
@@ -182,27 +229,30 @@ def get_model():
 
 
 def _prepare_image_for_model(pil_img: Image.Image):
-    # Funkcja preprocessingowa
+    """Zoptymalizowana funkcja preprocessingowa używająca NumPy."""
     meta = MODEL_META
     
     input_shape = tuple(meta.get('input_shape'))
     _, H, W = input_shape
-    if pil_img.size[::-1] != (H, W):
-        pil_img = pil_img.resize((W, H))
-        
-    x = transforms.ToTensor()(pil_img)
-
-    # Użycie wartości z MODEL_META
-    mean_tensor = torch.tensor(meta['mean'], dtype=torch.float32)
-    std_tensor = torch.tensor(meta['std'], dtype=torch.float32)
-
-    # Normalizacja (X - mu) / sigma
-    x = (x - mean_tensor[:, None, None]) / std_tensor[:, None, None]
+    
+    # Resize jeśli potrzebne
+    if pil_img.size != (W, H):
+        pil_img = pil_img.resize((W, H), Image.BILINEAR)
+    
+    # Konwersja bezpośrednio do NumPy (szybsze niż przez PyTorch)
+    img_array = np.array(pil_img, dtype=np.float32) / 255.0  # [H, W, C]
+    
+    # Transpozycja do [C, H, W]
+    img_array = np.transpose(img_array, (2, 0, 1))
+    
+    # Normalizacja używając prekalkulowanych wartości
+    img_array = (img_array - MEAN_NP) / STD_NP
     
     # Dodanie wymiaru batcha: [1, C, H, W]
-    x = x.unsqueeze(0)
+    img_array = np.expand_dims(img_array, axis=0)
     
-    return x
+    return img_array
+
 
 # ====================================================================
 # ENDPOINTY API
@@ -233,7 +283,7 @@ async def predict(req: PredictRequest):
     """Predict whether building at centroid has asbestos using model checkpoint."""
     
     try:
-        model = get_model() # Ładuje sesję ONNX Runtime
+        model = get_model()
     except FileNotFoundError as e:
         raise HTTPException(status_code=503, detail=str(e))
     except Exception as e:
@@ -245,34 +295,32 @@ async def predict(req: PredictRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to download image: {e}")
 
-    # prepare tensor
+    # prepare tensor (teraz zwraca NumPy array bezpośrednio)
     try:    
-        x = _prepare_image_for_model(pil_img)
+        input_np = _prepare_image_for_model(pil_img)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to prepare image: {e}")
 
     # 4. KLUCZOWA ZMIANA: WNIOSKOWANIE ZA POMOCĄ ONNX RUNTIME
     try:
-        # Konwersja tensora PyTorch na tablicę NumPy
-        input_np = x.cpu().numpy()
-        
-        # Pobranie nazwy wejścia z sesji ONNX (z eksportu: 'input')
+        # Pobranie nazwy wejścia z sesji ONNX
         input_name = model.get_inputs()[0].name
         
         # Wykonanie wnioskowania
         ort_outs = model.run(None, {input_name: input_np})
         
-        # Wynik jest tablicą NumPy logitów - konwersja na tensor PyTorch dla post-processingu
-        logits = torch.from_numpy(ort_outs[0]) 
+        # Wynik jest tablicą NumPy logitów
+        logits = ort_outs[0]
 
-        # Post-processing (bez zmian)
-        if logits.ndim == 2 and logits.size(1) > 1:
-            probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
-            prob_asbestos = float(probs[1]) if len(probs) > 1 else float(probs[-1])
+        # Post-processing (zoptymalizowany - bez konwersji do PyTorch)
+        if logits.ndim == 2 and logits.shape[1] > 1:
+            # Softmax używając NumPy
+            exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+            probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+            prob_asbestos = float(probs[0, 1] if probs.shape[1] > 1 else probs[0, -1])
         else:
-            prob_asbestos = float(torch.sigmoid(logits.view(-1))[0].cpu().item())
-
-        is_potential = bool(prob_asbestos >= 0.5)
+            # Sigmoid używając NumPy
+            prob_asbestos = float(1.0 / (1.0 + np.exp(-logits.flatten()[0])))
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model inference error (ONNX): {e}")
@@ -282,7 +330,7 @@ async def predict(req: PredictRequest):
 
 @app.post("/batch_predict")
 async def batch_predict(req: BatchPredictRequest) -> BatchPredictResponse:
-    """Predict asbestos for multiple coordinates using parallel processing."""
+    """Predict asbestos for multiple coordinates using async processing."""
     
     if not req.coordinates:
         raise HTTPException(status_code=400, detail="Coordinates list cannot be empty")
@@ -294,69 +342,65 @@ async def batch_predict(req: BatchPredictRequest) -> BatchPredictResponse:
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model load error: {e}")
     
-    results = []
+    # Użycie asynchronicznego przetwarzania zamiast ThreadPoolExecutor
+    tasks = [
+        _predict_single_coordinate_async(coord.centroidLat, coord.centroidLng, coord.id)
+        for coord in req.coordinates
+    ]
     
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        future_to_coord = {
-            executor.submit(
-                _predict_single_coordinate,
-                coord.centroidLat,
-                coord.centroidLng,
-                coord.id
-            ): coord
-            for coord in req.coordinates
-        }
-        
-        for future in as_completed(future_to_coord):
-            try:
-                result = future.result()
-                results.append(result)
-            except Exception as e:
-                coord = future_to_coord[future]
-                results.append(PredictionResult(
-                    centroidLat=coord.centroidLat,
-                    centroidLng=coord.centroidLng,
-                    id=coord.id,
-                    isPotentiallyAsbestos=0.0,
-                    success=False,
-                    error=f"Unexpected error: {str(e)}"
-                ))
+    results = await asyncio.gather(*tasks, return_exceptions=True)
     
-    successful = sum(1 for r in results if r.success)
-    failed = len(results) - successful
+    # Konwersja wyjątków na wyniki z błędami
+    final_results = []
+    for i, result in enumerate(results):
+        if isinstance(result, Exception):
+            coord = req.coordinates[i]
+            final_results.append(PredictionResult(
+                centroidLat=coord.centroidLat,
+                centroidLng=coord.centroidLng,
+                id=coord.id,
+                isPotentiallyAsbestos=0.0,
+                success=False,
+                error=str(result)
+            ))
+        else:
+            final_results.append(result)
+    
+    successful = sum(1 for r in final_results if r.success)
+    failed = len(final_results) - successful
     
     return BatchPredictResponse(
-        results=results,
-        total=len(results),
+        results=final_results,
+        total=len(final_results),
         successful=successful,
         failed=failed
     )
 
 
-def _predict_single_coordinate(lat: float, lng: float, coord_id: Optional[str] = None) -> PredictionResult:
-    """Helper function to predict for a single coordinate."""
+async def _predict_single_coordinate_async(lat: float, lng: float, coord_id: Optional[str] = None) -> PredictionResult:
+    """Asynchroniczna pomocnicza funkcja do przewidywania dla pojedynczej współrzędnej."""
     try:
-        # Download image
-        pil_img = download_satellite_image(lat, lng, size=IMG_SIZE, zoom=ZOOM)
+        # Download image (async)
+        pil_img = await download_satellite_image(lat, lng, size=IMG_SIZE, zoom=ZOOM)
         
         # Prepare tensor
-        x = _prepare_image_for_model(pil_img)
+        input_np = _prepare_image_for_model(pil_img)
         
         # Get model (thread-safe as ONNX Runtime sessions are thread-safe)
         model = get_model()
         
         # Inference
-        input_np = x.cpu().numpy()
         input_name = model.get_inputs()[0].name
         ort_outs = model.run(None, {input_name: input_np})
-        logits = torch.from_numpy(ort_outs[0])
+        logits = ort_outs[0]
         
-        # Post-processing
-        if logits.ndim == 2 and logits.size(1) > 1:
-            probs = torch.softmax(logits, dim=1)[0].cpu().tolist()
-            prob_asbestos = float(probs[1]) if len(probs) > 1 else float(probs[-1])
+        # Post-processing (NumPy only)
+        if logits.ndim == 2 and logits.shape[1] > 1:
+            exp_logits = np.exp(logits - np.max(logits, axis=1, keepdims=True))
+            probs = exp_logits / np.sum(exp_logits, axis=1, keepdims=True)
+            prob_asbestos = float(probs[0, 1] if probs.shape[1] > 1 else probs[0, -1])
         else:
-            prob_asbestos = float(torch.sigmoid(logits.view(-1))[0].cpu().item())
+            prob_asbestos = float(1.0 / (1.0 + np.exp(-logits.flatten()[0])))
         
         return PredictionResult(
             centroidLat=lat,
@@ -376,6 +420,17 @@ def _predict_single_coordinate(lat: float, lng: float, coord_id: Optional[str] =
             success=False,
             error=str(e)
         )
+
+
+# Zachowanie starej synchronicznej funkcji dla kompatybilności
+def _predict_single_coordinate(lat: float, lng: float, coord_id: Optional[str] = None) -> PredictionResult:
+    """Synchroniczna wersja - uruchom async w nowym event loop."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    try:
+        return loop.run_until_complete(_predict_single_coordinate_async(lat, lng, coord_id))
+    finally:
+        loop.close()
 
 
 if __name__ == "__main__":

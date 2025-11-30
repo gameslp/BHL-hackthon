@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { MapContainer, TileLayer, Polygon, Popup, ZoomControl } from 'react-leaflet';
+import toast from 'react-hot-toast';
 import { useBBoxBuildings } from '../hooks/useBuildings';
 import LocationSearch from './LocationSearch';
 import RectangleDrawer from './RectangleDrawer';
 import StatsPieChart from './StatsPieChart';
+import { exportTerrainReport } from '@/lib/exportPDF';
 import 'leaflet/dist/leaflet.css';
 import Loader from '@/components/Loader';
 
@@ -44,6 +46,7 @@ function getBuildingColor(building: Building): string {
 export default function Map() {
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [stats, setStats] = useState<BBoxStats | null>(null);
+  const [currentBBox, setCurrentBBox] = useState<{ ne: { lat: number; lng: number }; sw: { lat: number; lng: number } } | null>(null);
   const bboxMutation = useBBoxBuildings();
 
   // Default to Leszno area from example
@@ -53,17 +56,66 @@ export default function Map() {
   const handleBBoxDrawn = async (bbox: { ne: { lat: number; lng: number }; sw: { lat: number; lng: number } }) => {
     try {
       const result = await bboxMutation.mutateAsync(bbox);
-      setBuildings(result.data.buildings);
-      setStats(result.data.stats);
+
+      // Validate result structure
+      if (!result || !result.buildings || !result.stats) {
+        throw new Error('Invalid response from server');
+      }
+
+      setBuildings(result.buildings);
+      setStats(result.stats);
+      setCurrentBBox(bbox);
+
+      // Success toast
+      const buildingCount = result.stats?.total || result.buildings.length;
+      toast.success(
+        `Successfully analyzed ${buildingCount} buildings in the selected area!`,
+        {
+          icon: '🏢',
+        }
+      );
     } catch (error) {
       console.error('Failed to fetch buildings:', error);
-      alert('Failed to fetch buildings. Please try a smaller area or try again later.');
+
+      // Error toast with detailed message
+      let errorMessage = 'Failed to fetch buildings';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      toast.error(
+        `${errorMessage}. Please try a smaller area or try again later.`,
+        {
+          duration: 6000,
+          icon: '⚠️',
+        }
+      );
     }
   };
 
   const handleClear = () => {
     setBuildings([]);
     setStats(null);
+    setCurrentBBox(null);
+  };
+
+  const handleExportPDF = () => {
+    if (stats) {
+      try {
+        exportTerrainReport(buildings, stats, currentBBox || undefined);
+        toast.success('PDF report downloaded successfully!', {
+          icon: '📄',
+        });
+      } catch (error) {
+        console.error('Failed to export PDF:', error);
+        toast.error('Failed to generate PDF report. Please try again.', {
+          icon: '❌',
+        });
+      }
+    }
   };
 
   return (
@@ -97,6 +149,28 @@ export default function Map() {
             {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
             <div className="text-gray-600">Unknown: {stats.unknown}</div>
           </div>
+
+          {/* Export PDF Button */}
+          <button
+            onClick={handleExportPDF}
+            className="mt-4 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow transition-colors flex items-center justify-center gap-2"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-5 w-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+              />
+            </svg>
+            Export PDF Report
+          </button>
         </div>
       )}
 

@@ -97,19 +97,16 @@ export class GeocodingService {
   ): Promise<ReverseGeocodeResult[]> {
     try {
       // Build the request body for batch geocoding
-      // Format: { requests: [{ id: "1", params: { q: "lng,lat" } }, ...] }
-      const requests = coordinates.map((coord, index) => ({
-        id: index.toString(),
-        params: {
-          q: `${coord.longitude},${coord.latitude}`,
-          types: 'address,place,locality',
-          limit: 1,
-        },
+      const requests = coordinates.map((coord) => ({
+        types: ['address', 'place'],
+        longitude: coord.longitude,
+        latitude: coord.latitude,
+        limit: 1,
       }));
 
       const response = await axios.post(
         this.MAPBOX_BATCH_API_URL,
-        { requests },
+        requests,
         {
           params: {
             access_token: accessToken,
@@ -121,11 +118,16 @@ export class GeocodingService {
         }
       );
 
+      console.log('Batch geocoding response status:', response.status);
+      //console.log('Batch geocoding response data:', response.data.batch);
+
+      console.log('Batch geocoding response data:', (response.data.batch as any[]).map(item => item.features.properties));
+
       // Parse batch response
       const batchResponses = response.data.batch || [];
-
+      console.log('Batch geocoding responses:', batchResponses);
       return coordinates.map((coord, index) => {
-        const batchItem = batchResponses.find((item: any) => item.id === index.toString());
+        const batchItem = batchResponses[index];
 
         if (!batchItem || !batchItem.features || batchItem.features.length === 0) {
           // No result found for this coordinate

@@ -58,8 +58,18 @@ export default function Map() {
         throw new Error('Invalid response from server');
       }
 
-      setBuildings(result.data.buildings);
-      setStats(result.data.stats);
+      const currentLength = buildings.length;
+      setBuildings(x => [...x, ...(result.data?.buildings ?? [])]);
+
+      
+      const newStats = result.data.stats;
+      setStats(x => ({
+        total: (x?.total || 0) + (newStats.total || 0),
+        asbestos: (x?.asbestos || 0) + (newStats.asbestos || 0),
+        potentiallyAsbestos: (x?.potentiallyAsbestos || 0) + (newStats.potentiallyAsbestos || 0),
+        unknown: (x?.unknown || 0) + (newStats.unknown || 0),
+        clean: (x?.clean || 0) + (newStats.clean || 0),
+      }));
       setCurrentBBox(bbox);
 
       // Success toast
@@ -73,7 +83,8 @@ export default function Map() {
 
       // Fetch addresses for buildings in background
       if (result.data.buildings.length > 0) {
-        fetchAddressesForBuildings(result.data.buildings);
+        console.log('Fetching addresses for buildings...');
+        fetchAddressesForBuildings(result.data.buildings, currentLength);
       }
     } catch (error) {
       console.error('Failed to fetch buildings:', error);
@@ -96,25 +107,31 @@ export default function Map() {
       );
     }
   };
-
-  const fetchAddressesForBuildings = async (buildingsData: Building[]) => {
+  const fetchAddressesForBuildings = async (buildingsData: Building[], startIndex: number) => {
     try {
       const coordinates = buildingsData.map(b => ({
         latitude: b.centroid.lat,
         longitude: b.centroid.lng,
       }));
 
-      const addresses = await geocodeMutation.mutateAsync(coordinates);
+      const addresses = await geocodeMutation.mutateAsync(coordinates.map(coord => ({
+        latitude: coord.latitude,
+        longitude: coord.longitude,
+        types: ['address', 'place', 'locality'],
+      })));
 
       // Merge addresses with buildings
-      const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => ({
+      const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => {
+        var parsed = (addresses[index].address as string)?.split(', ') ?? [];
+        return {
         ...building,
-        address: addresses[index]?.address || null,
-        city: addresses[index]?.city || null,
-        country: addresses[index]?.country || null,
-      }));
+        address: parsed[0] || null,
+        city: parsed[1] || null,
+        voivodeship: parsed[2] || null,
+      }});
+      
 
-      setBuildings(buildingsWithAddresses);
+      setBuildings(x => [...x.splice(0, startIndex), ...buildingsWithAddresses]);
     } catch (error) {
       console.error('Failed to fetch addresses:', error);
       // Don't show error toast - addresses are optional enhancement
@@ -127,10 +144,10 @@ export default function Map() {
     setCurrentBBox(null);
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDF = async () => {
     if (stats) {
       try {
-        exportTerrainReport(buildings, stats, currentBBox || undefined);
+        await exportTerrainReport(buildings, stats, currentBBox || undefined);
         toast.success('PDF report downloaded successfully!', {
           icon: '📄',
         });
@@ -172,7 +189,7 @@ export default function Map() {
             <div className="text-red-600">Asbestos: {stats.asbestos}</div>
             <div className="text-orange-600">Potentially: {stats.potentiallyAsbestos}</div>
             {/* <div className="text-green-600">Clean: {stats.clean}</div> */}
-            <div className="text-gray-600">Unknown: {stats.unknown}</div>
+            <div className="text-green-700">Clean: {stats.unknown}</div>
           </div>
 
           {/* Export PDF Button */}
@@ -217,7 +234,7 @@ export default function Map() {
               <span>Clean</span>
             </div> */}
             <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.unknown }}></div>
+              <div className="w-4 h-4 rounded" style={{ backgroundColor: COLORS.clean }}></div>
               <span>Building Unknown</span>
             </div>
           </div>
@@ -249,7 +266,7 @@ export default function Map() {
         <LocationSearch />
         <RectangleDrawer
           onBBoxDrawn={handleBBoxDrawn}
-          onClear={handleClear}
+          onEntitiesClear={handleClear}
           isLoading={bboxMutation.isPending}
         />
         <ZoomControl position="topleft" />

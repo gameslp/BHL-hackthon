@@ -72,6 +72,9 @@ importers:
       express:
         specifier: ^4.21.1
         version: 4.21.2
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@types/cors':
         specifier: ^2.8.17
@@ -116,9 +119,6 @@ importers:
       '@tanstack/react-query':
         specifier: ^5.62.16
         version: 5.90.11(react@19.2.0)
-      '@types/leaflet-draw':
-        specifier: ^1.0.13
-        version: 1.0.13
       jspdf:
         specifier: ^3.0.4
         version: 3.0.4
@@ -159,6 +159,9 @@ importers:
       '@types/leaflet':
         specifier: ^1.9.14
         version: 1.9.21
+      '@types/leaflet-draw':
+        specifier: ^1.0.13
+        version: 1.0.13
       '@types/node':
         specifier: ^20
         version: 20.19.25

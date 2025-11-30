@@ -14,10 +14,11 @@ interface BBox {
 interface RectangleDrawerProps {
   onBBoxDrawn: (bbox: BBox) => void;
   onClear?: () => void;
+  onEntitiesClear?: () => void;
   isLoading?: boolean;
 }
 
-export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = false }: RectangleDrawerProps) {
+export default function RectangleDrawer({ onBBoxDrawn, onClear, onEntitiesClear, isLoading = false }: RectangleDrawerProps) {
   const map = useMap();
   const drawControlRef = useRef<L.Control.Draw | null>(null);
   const drawnLayersRef = useRef<L.FeatureGroup | null>(null);
@@ -124,9 +125,19 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
     if (drawnLayersRef.current) {
       drawnLayersRef.current.clearLayers();
     }
-    setHasRectangle(false);
+    //setHasRectangle(false);
     if (onClear) {
       onClear();
+    }
+  };
+
+  const handleClearEntitiesClick = () => {
+    if (drawnLayersRef.current) {
+      drawnLayersRef.current.clearLayers();
+    }
+    setHasRectangle(false);
+    if (onEntitiesClear) {
+      onEntitiesClear();
     }
   };
 
@@ -134,7 +145,7 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
     <>
       {hasRectangle && (
         // <div className="absolute top-[152px] left-12 z-[1000]">
-        <div className="absolute top-20 left-14 z-[500]">
+        <div className="absolute top-30 left-14 z-[500]">
           <button
             onClick={handleClearClick}
             disabled={isLoading}
@@ -155,6 +166,32 @@ export default function RectangleDrawer({ onBBoxDrawn, onClear, isLoading = fals
               />
             </svg>
             Clear Selection
+          </button>
+        </div>
+      )}
+      {hasRectangle && (
+        // <div className="absolute top-[152px] left-12 z-[1000]">
+        <div className="absolute top-20 left-14 z-[500]">
+          <button
+            onClick={handleClearEntitiesClick}
+            disabled={isLoading}
+            className="bg-white hover:bg-gray-100 disabled:bg-gray-200 disabled:cursor-not-allowed px-3 py-2 rounded shadow-md border border-gray-300 flex items-center gap-2 text-sm font-medium transition-colors"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+              />
+            </svg>
+            Clear Entities
           </button>
         </div>
       )}

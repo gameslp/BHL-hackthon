@@ -1,9 +1,16 @@
 'use client';
 
 import { useState } from 'react';
+import { DM_Sans } from 'next/font/google';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Toaster } from 'react-hot-toast';
 import "./globals.css";
+
+const dmSans = DM_Sans({
+  weight: ['300', '400', '500', '700'],
+  subsets: ['latin', 'latin-ext'],
+  display: 'swap',
+});
 
 export default function RootLayout({
   children,
@@ -23,7 +30,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className="antialiased">
+      <body className={`antialiased ${dmSans.className}`}>
         <QueryClientProvider client={queryClient}>
           <Toaster
             position="top-center"

@@ -20,7 +20,6 @@ interface BatchPredictResponse {
  * Service for calling Python ML model to predict asbestos presence.
  */
 export class MLService {
-  private static readonly ML_SERVICE_URL = process.env.ML_SERVICE_URL || 'http://localhost:8000';
   private static readonly PREDICTION_THRESHOLD = 0.7; // Probability threshold for positive prediction
 
   /**
@@ -36,8 +35,11 @@ export class MLService {
     }
 
     try {
+
+      const serviceUrl = process.env.ML_SERVICE_URL;
+      console.log('Sending request to:', `${serviceUrl}/batch_predict`);
       const response = await axios.post<BatchPredictResponse>(
-        `${this.ML_SERVICE_URL}/batch_predict`,
+        `${serviceUrl}/batch_predict`,
         {
           coordinates: centroids.map(c => ({
             centroidLng: c.lng,
@@ -58,6 +60,7 @@ export class MLService {
       });
     } catch (error) {
       // ML service not available - return all null (unknown)
+      console.log("ML service error:", error);
       console.error('ML service unavailable, returning null for isPotentiallyAsbestos');
       return centroids.map(() => null);
     }

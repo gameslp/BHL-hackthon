@@ -12,7 +12,8 @@ export const useBBoxBuildings = () => {
 
       // Check if response has error
       if (response.error) {
-        throw new Error(response.error.message || 'Failed to fetch buildings');
+        const errorMessage = (response.error as any).message || 'Failed to fetch buildings';
+        throw new Error(errorMessage);
       }
 
       // Check if data exists

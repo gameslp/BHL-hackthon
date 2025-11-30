@@ -17,7 +17,7 @@ interface StatsPieChartProps {
 const COLORS = {
   asbestos: '#EF4444',        // red
   potentiallyAsbestos: '#F59E0B', // orange
-  unknown: '#6B7280',         // gray
+  unknown: 'oklch(52.7% 0.154 150.069)',         // gray
 };
 
 export default function StatsPieChart({ stats }: StatsPieChartProps) {

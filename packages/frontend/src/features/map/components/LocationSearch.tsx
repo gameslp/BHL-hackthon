@@ -3,11 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import { useGeocoding } from '../hooks/useGeocoding';
-
-interface GeocodeResult {
-  placeName: string;
-  center: [number, number]; // [lng, lat]
-}
+import type { GeocodeResult } from '@/lib/api/generated/types.gen';
 
 export default function LocationSearch() {
   const [query, setQuery] = useState('');

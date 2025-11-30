@@ -53,6 +53,8 @@ cd ../..
 
 This creates type-safe API client functions in `packages/frontend/src/lib/api/generated/`
 
+**Note:** These generated files are in `.gitignore` and should NOT be committed. They're auto-generated from `spec/openapi.yaml`. Re-run `pnpm generate:client` whenever the OpenAPI spec changes.
+
 ## Step 5: Start Backend (1 minute)
 
 Open a new terminal:

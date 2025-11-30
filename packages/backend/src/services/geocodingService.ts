@@ -22,6 +22,7 @@ export class GeocodingService {
           params: {
             access_token: accessToken,
             limit: 5,
+            countries: 'pl' // Limit to Poland
           },
           timeout: 5000,
         }

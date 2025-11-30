@@ -116,7 +116,7 @@ export const getBuildingsInBBox = asyncHandler(async (req: Request, res: Respons
     total: processedBuildings.length,
     asbestos: processedBuildings.filter(b => b.isAsbestos).length,
     potentiallyAsbestos: processedBuildings.filter(b => b.isPotentiallyAsbestos === true && b.isAsbestos === false).length,
-    unknown: processedBuildings.filter(b => b.isAsbestos === false && b.isPotentiallyAsbestos === false).length,
+    unknown: processedBuildings.filter(b => b.isAsbestos === false && (b.isPotentiallyAsbestos === false || b.isPotentiallyAsbestos === null)).length,
   };
 
   // Step 5: Format response (convert polygon from Prisma JSON to array)

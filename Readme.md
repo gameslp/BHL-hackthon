@@ -144,6 +144,20 @@ Frontend will run on http://localhost:3001
 pnpm build
 ```
 
+### Production via Docker Compose
+
+1. **Environment:** Copy `.env.production.example` to `.env.production` and fill in the remote `DATABASE_URL`, optional `SHADOW_DATABASE_URL`, Mapbox token, and any custom ports/API URLs.  
+2. **ML artifact:** Place the ONNX model at `./artifacts/asbestos_net.onnx` (this directory is mounted read-only into the ML container).  
+3. **Build & start:**  
+   ```bash
+   docker compose --env-file .env.production -f docker-compose-prod.yml up --build
+   ```  
+   This builds the monorepo once, generates the hey-api client, compiles every workspace package, runs `prisma generate`, and executes `prisma migrate deploy` against the configured MySQL instance before launching the backend.  
+4. **Services (host ports):**  
+   - Backend → http://localhost:3030 (depends on ML service and external DB)  
+   - Frontend → http://localhost:3031 (served via `next start`)  
+   - ML API → http://localhost:3032 (FastAPI + ONNX Runtime)
+
 ## API Endpoints
 
 ### POST /api/bbox

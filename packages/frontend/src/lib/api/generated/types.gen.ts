@@ -50,7 +50,7 @@ export type BuildingWithAddress = Building & {
     /**
      * Country name from reverse geocoding
      */
-    voivodeship?: string | null;
+    country?: string | null;
 };
 
 export type BBoxRequest = {

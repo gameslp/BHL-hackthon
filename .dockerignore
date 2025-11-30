@@ -1,0 +1,17 @@
+.git
+.gitignore
+.vscode
+.idea
+node_modules
+.pnpm-store
+dist
+.next
+docker/mysql/init.sql
+packages/database/.env
+packages/**/dist
+packages/**/.turbo
+packages/frontend/src/lib/api/generated
+**/*.log
+tmp
+.DS_Store
+artifacts

@@ -225,34 +225,49 @@ export async function checkBuildingForAsbestos(polygon: number[][]): Promise<boo
 }
 
 /**
- * Batch check multiple buildings for asbestos
+ * Batch check multiple buildings for asbestos with parallel processing
  *
  * @param buildings - Array of building polygons
- * @param delayMs - Delay between requests (default: 100ms to avoid overwhelming the API)
- * @returns Array of boolean results
+ * @param concurrency - Number of concurrent requests (default: 10)
+ * @returns Array of boolean results in the same order as input
  */
 export async function batchCheckBuildings(
   buildings: number[][][],
-  delayMs: number = 100
+  concurrency: number = 10
 ): Promise<boolean[]> {
-  const results: boolean[] = [];
-
-  for (const building of buildings) {
-    try {
-      const hasAsbestos = await checkBuildingForAsbestos(building);
-      results.push(hasAsbestos);
-
-      // Delay to avoid overwhelming the WMS service
-      if (delayMs > 0) {
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
-    } catch (error) {
-      console.error('Error in batch check:', error);
-      results.push(false); // Default to false on error
-    }
+  if (buildings.length === 0) {
+    return [];
   }
 
-  return results;
+  // Create array to store results in correct order
+  const results: (boolean | null)[] = new Array(buildings.length).fill(null);
+
+  // Process buildings in chunks with controlled concurrency
+  const processBatch = async (startIdx: number, batchSize: number) => {
+    const promises = [];
+
+    for (let i = startIdx; i < Math.min(startIdx + batchSize, buildings.length); i++) {
+      const promise = checkBuildingForAsbestos(buildings[i]!)
+        .then(hasAsbestos => {
+          results[i] = hasAsbestos;
+        })
+        .catch(error => {
+          console.error(`Error checking building ${i}:`, error);
+          results[i] = false;
+        });
+
+      promises.push(promise);
+    }
+
+    await Promise.all(promises);
+  };
+
+  // Process in concurrent batches
+  for (let i = 0; i < buildings.length; i += concurrency) {
+    await processBatch(i, concurrency);
+  }
+
+  return results as boolean[];
 }
 
 // Export types

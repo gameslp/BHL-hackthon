@@ -18,24 +18,39 @@ export type Coordinate = [
 export type Polygon = Array<Coordinate>;
 
 export type Centroid = {
-    lng?: number;
-    lat?: number;
+    lng: number;
+    lat: number;
 };
 
 export type Building = {
-    id?: string;
-    polygon?: Polygon;
-    centroid?: Centroid;
+    id: string;
+    polygon: Polygon;
+    centroid: Centroid;
     /**
      * Whether building is in asbestos database
      */
-    isAsbestos?: boolean;
+    isAsbestos: boolean;
     /**
      * ML model prediction (null if not yet processed)
      */
-    isPotentiallyAsbestos?: boolean | null;
-    createdAt?: string;
-    updatedAt?: string;
+    isPotentiallyAsbestos: boolean | null;
+    createdAt: string;
+    updatedAt: string;
+};
+
+export type BuildingWithAddress = Building & {
+    /**
+     * Full address from reverse geocoding
+     */
+    address?: string | null;
+    /**
+     * City name from reverse geocoding
+     */
+    city?: string | null;
+    /**
+     * Country name from reverse geocoding
+     */
+    country?: string | null;
 };
 
 export type BBoxRequest = {
@@ -59,23 +74,23 @@ export type BBoxStats = {
     /**
      * Total number of buildings
      */
-    total?: number;
+    total: number;
     /**
      * Number of buildings with confirmed asbestos
      */
-    asbestos?: number;
+    asbestos: number;
     /**
      * Number of buildings with ML prediction for asbestos
      */
-    potentiallyAsbestos?: number;
+    potentiallyAsbestos: number;
     /**
      * Number of clean buildings
      */
-    clean?: number;
+    clean: number;
     /**
      * Number of buildings not yet processed by ML
      */
-    unknown?: number;
+    unknown: number;
 };
 
 export type BBoxResponse = {

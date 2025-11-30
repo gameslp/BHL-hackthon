@@ -156,6 +156,9 @@ components:
 
     Centroid:
       type: object
+      required:
+        - lng
+        - lat
       properties:
         lng:
           type: number
@@ -166,6 +169,14 @@ components:
 
     Building:
       type: object
+      required:
+        - id
+        - polygon
+        - centroid
+        - isAsbestos
+        - isPotentiallyAsbestos
+        - createdAt
+        - updatedAt
       properties:
         id:
           type: string
@@ -187,6 +198,27 @@ components:
         updatedAt:
           type: string
           format: date-time
+
+    BuildingWithAddress:
+      allOf:
+        - $ref: '#/components/schemas/Building'
+        - type: object
+          properties:
+            address:
+              type: string
+              nullable: true
+              description: 'Full address from reverse geocoding'
+              example: 'Rynek 1, 64-100 Leszno'
+            city:
+              type: string
+              nullable: true
+              description: 'City name from reverse geocoding'
+              example: 'Leszno'
+            country:
+              type: string
+              nullable: true
+              description: 'Country name from reverse geocoding'
+              example: 'Poland'
 
     BBoxRequest:
       type: object
@@ -231,6 +263,12 @@ components:
 
     BBoxStats:
       type: object
+      required:
+        - total
+        - asbestos
+        - potentiallyAsbestos
+        - clean
+        - unknown
       properties:
         total:
           type: integer

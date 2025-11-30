@@ -288,9 +288,13 @@ components:
 
     BBoxResponse:
       type: object
+      required:
+        - data
+        - error
       properties:
         data:
           type: object
+          nullable: true
           properties:
             buildings:
               type: array
@@ -299,18 +303,38 @@ components:
             stats:
               $ref: '#/components/schemas/BBoxStats'
         error:
-          type: 'null'
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            code:
+              type: string
 
     BuildingResponse:
       type: object
+      required:
+        - data
+        - error
       properties:
         data:
-          $ref: '#/components/schemas/Building'
+          allOf:
+            - $ref: '#/components/schemas/Building'
+          nullable: true
         error:
-          type: 'null'
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            code:
+              type: string
 
     GeocodeResult:
       type: object
+      required:
+        - placeName
+        - center
       properties:
         placeName:
           type: string
@@ -320,16 +344,26 @@ components:
 
     GeocodeResponse:
       type: object
+      required:
+        - data
+        - error
       properties:
         data:
           type: object
+          nullable: true
           properties:
             results:
               type: array
               items:
                 $ref: '#/components/schemas/GeocodeResult'
         error:
-          type: 'null'
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            code:
+              type: string
 
     BatchGeocodeRequest:
       type: object
@@ -385,24 +419,40 @@ components:
 
     BatchGeocodeResponse:
       type: object
+      required:
+        - data
+        - error
       properties:
         data:
           type: object
+          nullable: true
           properties:
             results:
               type: array
               items:
                 $ref: '#/components/schemas/ReverseGeocodeResult'
         error:
-          type: 'null'
+          type: object
+          nullable: true
+          properties:
+            message:
+              type: string
+            code:
+              type: string
 
     ErrorResponse:
       type: object
+      required:
+        - data
+        - error
       properties:
         data:
           type: 'null'
         error:
           type: object
+          required:
+            - message
+            - code
           properties:
             message:
               type: string

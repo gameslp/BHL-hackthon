@@ -62,6 +62,7 @@ export default function Map() {
 
       // Fetch addresses for buildings in background
       if (result.data.buildings.length > 0) {
+        console.log('Fetching addresses for buildings...');
         fetchAddressesForBuildings(result.data.buildings);
       }
     } catch (error) {
@@ -98,9 +99,9 @@ export default function Map() {
       // Merge addresses with buildings
       const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => ({
         ...building,
-        address: addresses[index]?.address || null,
-        city: addresses[index]?.city || null,
-        country: addresses[index]?.country || null,
+        address: addresses?.[index]?.address || null,
+        city: addresses?.[index]?.city || null,
+        country: addresses?.[index]?.country || null,
       }));
 
       setBuildings(buildingsWithAddresses);

@@ -94,28 +94,37 @@ export type BBoxStats = {
 };
 
 export type BBoxResponse = {
-    data?: {
+    data: {
         buildings?: Array<Building>;
         stats?: BBoxStats;
-    };
-    error?: unknown;
+    } | null;
+    error: {
+        message?: string;
+        code?: string;
+    } | null;
 };
 
 export type BuildingResponse = {
-    data?: Building;
-    error?: unknown;
+    data: Building | null;
+    error: {
+        message?: string;
+        code?: string;
+    } | null;
 };
 
 export type GeocodeResult = {
-    placeName?: string;
-    center?: Coordinate;
+    placeName: string;
+    center: Coordinate;
 };
 
 export type GeocodeResponse = {
-    data?: {
+    data: {
         results?: Array<GeocodeResult>;
-    };
-    error?: unknown;
+    } | null;
+    error: {
+        message?: string;
+        code?: string;
+    } | null;
 };
 
 export type BatchGeocodeRequest = {
@@ -146,17 +155,20 @@ export type ReverseGeocodeResult = {
 };
 
 export type BatchGeocodeResponse = {
-    data?: {
+    data: {
         results?: Array<ReverseGeocodeResult>;
-    };
-    error?: unknown;
+    } | null;
+    error: {
+        message?: string;
+        code?: string;
+    } | null;
 };
 
 export type ErrorResponse = {
-    data?: unknown;
-    error?: {
-        message?: string;
-        code?: string;
+    data: unknown;
+    error: {
+        message: string;
+        code: string;
     };
 };
 

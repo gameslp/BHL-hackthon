@@ -123,7 +123,7 @@ export class GeocodingService {
 
       // Parse batch response
       const batchResponses = response.data.batch || [];
-
+      console.log('Batch geocoding responses:', batchResponses);
       return coordinates.map((coord, index) => {
         const batchItem = batchResponses.find((item: any) => item.id === index.toString());
 

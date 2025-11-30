@@ -94,7 +94,11 @@ export default function Map() {
         longitude: b.centroid.lng,
       }));
 
-      const addresses = await geocodeMutation.mutateAsync(coordinates);
+      const addresses = await geocodeMutation.mutateAsync(coordinates.map(coord => ({
+        latitude: coord.latitude,
+        longitude: coord.longitude,
+        types: ['address', 'place', 'locality'],
+      })));
 
       // Merge addresses with buildings
       const buildingsWithAddresses: BuildingWithAddress[] = buildingsData.map((building, index) => ({

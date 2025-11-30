@@ -377,6 +377,7 @@ components:
             required:
               - latitude
               - longitude
+              - types
             properties:
               latitude:
                 type: number
@@ -388,6 +389,12 @@ components:
                 minimum: -180
                 maximum: 180
                 example: 20.4713
+              types:
+                type: array
+                items:
+                  type: string
+                  enum: [address, place, locality, neighborhood, region, country, postcode]
+                description: 'Types of geocoding to perform'
           minItems: 1
           maxItems: 1000
           description: 'Array of coordinates to reverse geocode (max 1000)'

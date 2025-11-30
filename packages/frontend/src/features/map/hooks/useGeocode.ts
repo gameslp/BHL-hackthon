@@ -18,7 +18,7 @@ export const useBatchGeocode = () => {
         throw new Error('No data returned from geocoding service');
       }
 
-      return (response.data as any).results;
+      return (response.data.data as any).results;
     },
   });
 };

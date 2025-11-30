@@ -134,6 +134,10 @@ export type BatchGeocodeRequest = {
     coordinates: Array<{
         latitude: number;
         longitude: number;
+        /**
+         * Types of geocoding to perform
+         */
+        types: Array<'address' | 'place' | 'locality' | 'neighborhood' | 'region' | 'country' | 'postcode'>;
     }>;
 };
 

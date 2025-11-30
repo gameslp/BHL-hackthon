@@ -10,7 +10,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-import requests
+import aiohttp
+import asyncio
 from PIL import Image
 from io import BytesIO
 import math
@@ -89,7 +90,7 @@ def lat_lng_to_pixel_in_tile(lat, lng, zoom):
     return x_tile, y_tile, pixel_x, pixel_y
 
 
-def download_satellite_image(lat, lng, size=128, zoom=20):
+async def download_satellite_image(lat, lng, size=128, zoom=20):
     x_tile, y_tile, pixel_x, pixel_y = lat_lng_to_pixel_in_tile(lat, lng, zoom)
     
     tile_size = 256
@@ -101,24 +102,32 @@ def download_satellite_image(lat, lng, size=128, zoom=20):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     }
 
+    # Przygotowanie listy kafelków do pobrania
+    tiles_to_download = []
     for i in range(tiles_needed):
         for j in range(tiles_needed):
             tx = x_tile - tiles_needed // 2 + i
             ty = y_tile - tiles_needed // 2 + j
-            
-            # Wprowadzono Cache Busting
             timestamp = int(time.time() * 1000)
-            url = f"https://mt1.google.com/vt/lyrs=s&x={tx}&y={ty}&z={zoom}&ts={timestamp}" 
+            url = f"https://mt1.google.com/vt/lyrs=s&x={tx}&y={ty}&z={zoom}&ts={timestamp}"
+            tiles_to_download.append((url, i, j))
 
-            try:
-                response = requests.get(url, headers=headers, timeout=30)
-                response.raise_for_status()
-                tile_img = Image.open(BytesIO(response.content))
+    # Asynchroniczne pobieranie wszystkich kafelków
+    async with aiohttp.ClientSession(headers=headers) as session:
+        tasks = []
+        for url, i, j in tiles_to_download:
+            tasks.append(_download_tile(session, url, i, j, tile_size))
+        
+        tile_results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Wklejanie pobranych kafelków
+        for result in tile_results:
+            if isinstance(result, Exception):
+                print(f"Error downloading tile: {result}")
+                continue
+            if result is not None:
+                tile_img, i, j = result
                 combined_image.paste(tile_img, (i * tile_size, j * tile_size))
-            except Exception as e:
-                print(f"Error downloading tile: {e}")
-                gray_tile = Image.new('RGB', (tile_size, tile_size), (128, 128, 128))
-                combined_image.paste(gray_tile, (i * tile_size, j * tile_size))
 
     center_x = (tiles_needed // 2) * tile_size + pixel_x
     center_y = (tiles_needed // 2) * tile_size + pixel_y
@@ -131,6 +140,20 @@ def download_satellite_image(lat, lng, size=128, zoom=20):
 
     cropped = combined_image.crop((left, top, right, bottom))
     return cropped
+
+
+async def _download_tile(session: aiohttp.ClientSession, url: str, i: int, j: int, tile_size: int):
+    """Helper function to download a single tile asynchronously."""
+    try:
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            response.raise_for_status()
+            content = await response.read()
+            tile_img = Image.open(BytesIO(content))
+            return (tile_img, i, j)
+    except Exception as e:
+        print(f"Error downloading tile at ({i}, {j}): {e}")
+        gray_tile = Image.new('RGB', (tile_size, tile_size), (128, 128, 128))
+        return (gray_tile, i, j)
 
 
 # 3. NOWA FUNKCJA ŁADOWANIA SESJI ONNX
@@ -216,9 +239,9 @@ async def predict(req: PredictRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Model load error: {e}")
 
-    # download image around centroid
+    # download image around centroid (teraz asynchronicznie)
     try:
-        pil_img = download_satellite_image(req.centroidLat, req.centroidLng, size=IMG_SIZE, zoom=ZOOM)
+        pil_img = await download_satellite_image(req.centroidLat, req.centroidLng, size=IMG_SIZE, zoom=ZOOM)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to download image: {e}")
 

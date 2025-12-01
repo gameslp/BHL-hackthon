@@ -30,6 +30,9 @@ export default function RootLayout({
 
   return (
     <html lang="en">
+      <head>
+        <title>AsbestosNet</title>
+      </head>
       <body className={`antialiased ${dmSans.className}`}>
         <QueryClientProvider client={queryClient}>
           <Toaster

@@ -114,12 +114,13 @@ body {
   margin-left: 0 !important;
 }
 .leaflet-touch .leaflet-bar {
-  box-shadow: var(--shadow-lg) !important;
-  overflow: hidden;
+  box-shadow: var(--shadow-xl) !important;
   border: none !important;
-}
-.leaflet-control > a {
-
+  /* overflow: hidden; */
+  /* border: none !important; */
+  /* border-color: var(--color-gray-200);
+  border-style: var(--tw-border-style);
+  border: 0 solid; */
 }
   /*
 

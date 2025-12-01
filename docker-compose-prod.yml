@@ -2,6 +2,7 @@ version: '3.9'
 
 services:
   backend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/production.Dockerfile
@@ -30,6 +31,7 @@ services:
       - bhl-net
 
   frontend:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/production.Dockerfile
@@ -50,6 +52,7 @@ services:
       - bhl-net
 
   ml-api:
+    restart: unless-stopped
     build:
       context: .
       dockerfile: docker/api.Dockerfile

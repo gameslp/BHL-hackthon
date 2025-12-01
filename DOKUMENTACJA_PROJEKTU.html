@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>DOKUMENTACJA_PROJEKTU.md</title>
+<meta http-equiv="Content-type" content="text/html;charset=UTF-8">
+
+<style>
+/* https://github.com/microsoft/vscode/blob/master/extensions/markdown-language-features/media/markdown.css */
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (c) Microsoft Corporation. All rights reserved.
+ *  Licensed under the MIT License. See License.txt in the project root for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+body {
+	font-family: var(--vscode-markdown-font-family, -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif);
+	font-size: var(--vscode-markdown-font-size, 14px);
+	padding: 0 26px;
+	line-height: var(--vscode-markdown-line-height, 22px);
+	word-wrap: break-word;
+}
+
+#code-csp-warning {
+	position: fixed;
+	top: 0;
+	right: 0;
+	color: white;
+	margin: 16px;
+	text-align: center;
+	font-size: 12px;
+	font-family: sans-serif;
+	background-color:#444444;
+	cursor: pointer;
+	padding: 6px;
+	box-shadow: 1px 1px 1px rgba(0,0,0,.25);
+}
+
+#code-csp-warning:hover {
+	text-decoration: none;
+	background-color:#007acc;
+	box-shadow: 2px 2px 2px rgba(0,0,0,.25);
+}
+
+body.scrollBeyondLastLine {
+	margin-bottom: calc(100vh - 22px);
+}
+
+body.showEditorSelection .code-line {
+	position: relative;
+}
+
+body.showEditorSelection .code-active-line:before,
+body.showEditorSelection .code-line:hover:before {
+	content: "";
+	display: block;
+	position: absolute;
+	top: 0;
+	left: -12px;
+	height: 100%;
+}
+
+body.showEditorSelection li.code-active-line:before,
+body.showEditorSelection li.code-line:hover:before {
+	left: -30px;
+}
+
+.vscode-light.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.15);
+}
+
+.vscode-light.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(0, 0, 0, 0.40);
+}
+
+.vscode-light.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-dark.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.4);
+}
+
+.vscode-dark.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 255, 255, 0.60);
+}
+
+.vscode-dark.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+.vscode-high-contrast.showEditorSelection .code-active-line:before {
+	border-left: 3px solid rgba(255, 160, 0, 0.7);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line:hover:before {
+	border-left: 3px solid rgba(255, 160, 0, 1);
+}
+
+.vscode-high-contrast.showEditorSelection .code-line .code-line:hover:before {
+	border-left: none;
+}
+
+img {
+	max-width: 100%;
+	max-height: 100%;
+}
+
+a {
+	text-decoration: none;
+}
+
+a:hover {
+	text-decoration: underline;
+}
+
+a:focus,
+input:focus,
+select:focus,
+textarea:focus {
+	outline: 1px solid -webkit-focus-ring-color;
+	outline-offset: -1px;
+}
+
+hr {
+	border: 0;
+	height: 2px;
+	border-bottom: 2px solid;
+}
+
+h1 {
+	padding-bottom: 0.3em;
+	line-height: 1.2;
+	border-bottom-width: 1px;
+	border-bottom-style: solid;
+}
+
+h1, h2, h3 {
+	font-weight: normal;
+}
+
+table {
+	border-collapse: collapse;
+}
+
+table > thead > tr > th {
+	text-align: left;
+	border-bottom: 1px solid;
+}
+
+table > thead > tr > th,
+table > thead > tr > td,
+table > tbody > tr > th,
+table > tbody > tr > td {
+	padding: 5px 10px;
+}
+
+table > tbody > tr + tr > td {
+	border-top: 1px solid;
+}
+
+blockquote {
+	margin: 0 7px 0 5px;
+	padding: 0 16px 0 10px;
+	border-left-width: 5px;
+	border-left-style: solid;
+}
+
+code {
+	font-family: Menlo, Monaco, Consolas, "Droid Sans Mono", "Courier New", monospace, "Droid Sans Fallback";
+	font-size: 1em;
+	line-height: 1.357em;
+}
+
+body.wordWrap pre {
+	white-space: pre-wrap;
+}
+
+pre:not(.hljs),
+pre.hljs code > div {
+	padding: 16px;
+	border-radius: 3px;
+	overflow: auto;
+}
+
+pre code {
+	color: var(--vscode-editor-foreground);
+	tab-size: 4;
+}
+
+/** Theming */
+
+.vscode-light pre {
+	background-color: rgba(220, 220, 220, 0.4);
+}
+
+.vscode-dark pre {
+	background-color: rgba(10, 10, 10, 0.4);
+}
+
+.vscode-high-contrast pre {
+	background-color: rgb(0, 0, 0);
+}
+
+.vscode-high-contrast h1 {
+	border-color: rgb(0, 0, 0);
+}
+
+.vscode-light table > thead > tr > th {
+	border-color: rgba(0, 0, 0, 0.69);
+}
+
+.vscode-dark table > thead > tr > th {
+	border-color: rgba(255, 255, 255, 0.69);
+}
+
+.vscode-light h1,
+.vscode-light hr,
+.vscode-light table > tbody > tr + tr > td {
+	border-color: rgba(0, 0, 0, 0.18);
+}
+
+.vscode-dark h1,
+.vscode-dark hr,
+.vscode-dark table > tbody > tr + tr > td {
+	border-color: rgba(255, 255, 255, 0.18);
+}
+
+</style>
+
+<style>
+/* Tomorrow Theme */
+/* http://jmblog.github.com/color-themes-for-google-code-highlightjs */
+/* Original theme - https://github.com/chriskempson/tomorrow-theme */
+
+/* Tomorrow Comment */
+.hljs-comment,
+.hljs-quote {
+	color: #8e908c;
+}
+
+/* Tomorrow Red */
+.hljs-variable,
+.hljs-template-variable,
+.hljs-tag,
+.hljs-name,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-regexp,
+.hljs-deletion {
+	color: #c82829;
+}
+
+/* Tomorrow Orange */
+.hljs-number,
+.hljs-built_in,
+.hljs-builtin-name,
+.hljs-literal,
+.hljs-type,
+.hljs-params,
+.hljs-meta,
+.hljs-link {
+	color: #f5871f;
+}
+
+/* Tomorrow Yellow */
+.hljs-attribute {
+	color: #eab700;
+}
+
+/* Tomorrow Green */
+.hljs-string,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-addition {
+	color: #718c00;
+}
+
+/* Tomorrow Blue */
+.hljs-title,
+.hljs-section {
+	color: #4271ae;
+}
+
+/* Tomorrow Purple */
+.hljs-keyword,
+.hljs-selector-tag {
+	color: #8959a8;
+}
+
+.hljs {
+	display: block;
+	overflow-x: auto;
+	color: #4d4d4c;
+	padding: 0.5em;
+}
+
+.hljs-emphasis {
+	font-style: italic;
+}
+
+.hljs-strong {
+	font-weight: bold;
+}
+</style>
+
+<style>
+/*
+ * Markdown PDF CSS
+ */
+
+ body {
+	font-family: -apple-system, BlinkMacSystemFont, "Segoe WPC", "Segoe UI", "Ubuntu", "Droid Sans", sans-serif, "Meiryo";
+	padding: 0 12px;
+}
+
+pre {
+	background-color: #f8f8f8;
+	border: 1px solid #cccccc;
+	border-radius: 3px;
+	overflow-x: auto;
+	white-space: pre;
+	max-width: 100%;
+}
+
+pre:not(.hljs) {
+	padding: 23px;
+	line-height: 19px;
+}
+
+blockquote {
+	background: rgba(127, 127, 127, 0.1);
+	border-color: rgba(0, 122, 204, 0.5);
+}
+
+.emoji {
+	height: 1.4em;
+}
+
+code {
+	font-size: 14px;
+	line-height: 19px;
+}
+
+/* for inline code */
+:not(pre):not(.hljs) > code {
+	color: #C9AE75; /* Change the old color so it seems less like an error */
+	font-size: inherit;
+}
+
+/* ASCII diagrams - smaller font and scroll */
+pre.hljs code {
+	font-size: 10px;
+	line-height: 14px;
+	display: block;
+	overflow-x: auto;
+	white-space: pre;
+}
+
+/* Page Break : use <div class="page"/> to insert page break
+-------------------------------------------------------- */
+.page {
+	page-break-after: always;
+}
+
+</style>
+
+<script src="https://unpkg.com/mermaid/dist/mermaid.min.js"></script>
+</head>
+<body>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: document.body.classList.contains('vscode-dark') || document.body.classList.contains('vscode-high-contrast')
+          ? 'dark'
+          : 'default'
+    });
+  </script>
+<h1 id="%F0%9F%8F%97%EF%B8%8F-system-detekcji-azbestu---dokumentacja-projektu">🏗️ System Detekcji Azbestu - Dokumentacja Projektu <a href="https://asbestos-net.spryte.cloud/">https://asbestos-net.spryte.cloud/</a></h1>
+<h2 id="zdj%C4%99cia">Zdjęcia</h2>
+<p><img src="assets/main.png" alt="Ekran Główny"></p>
+<p><img src="assets/loading.png" alt="Ładowanie"></p>
+<p><img src="assets/report.png" alt="Raport obszaru"></p>
+<h2 id="%F0%9F%93%8B-opis-rozwi%C4%85zania">📋 Opis Rozwiązania</h2>
+<p><strong>Aplikacja webowa wspierająca urzędników w identyfikacji budynków z dachami azbestowymi</strong> poprzez inteligentne połączenie oficjalnej bazy azbestowej z predykcją opartą o uczenie maszynowe.</p>
+<h3 id="problem">Problem</h3>
+<p>Brak narzędzi do efektywnego mapowania budynków z azbestem na dużych obszarach. Ręczna analiza jest czasochłonna i nieefektywna dla całych gmin.</p>
+<h3 id="rozwi%C4%85zanie">Rozwiązanie</h3>
+<p>Interaktywna mapa pozwalająca na automatyczne skanowanie obszarów z:</p>
+<ul>
+<li>Weryfikacją w oficjalnej bazie azbestowej (gov.pl)</li>
+<li>Predykcją ML dla budynków nieznanych</li>
+<li>Wizualizacją kolorystyczną (czerwony=azbest, pomarańczowy=potrncjalny azbest przez ML, zielony=czysty)</li>
+<li>Statystykami i exportem do PDF</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%8F%9B%EF%B8%8F-architektura-systemu">🏛️ Architektura Systemu</h2>
+<h3 id="architektura-high-level">Architektura High-Level</h3>
+<pre class="hljs"><code><div>┌─────────────────┐                          ┌──────────────────┐
+│   Frontend      │     REST API (JSON)      │   Backend        │
+│   Next.js 16    │ ◄──────────────────────► │   Express.js     │
+│   (React)       │      HTTP/HTTPS          │   (Node.js)      │
+└─────────────────┘                          └──────────────────┘
+      │                                             │
+      │                             ┌───────────────┼────────────────┐
+      │                             │               │                │
+      ▼                       ┌─────▼─────┐  ┌──────▼──────┐  ┌─────▼──────┐
+┌─────────────┐               │   MySQL   │  │  Python ML  │  │  External  │
+│   Mapbox    │               │ Database  │  │   Service   │  │    APIs    │
+│  (Tiles)    │               │ (Prisma)  │  │   (ONNX)    │  │            │
+└─────────────┘               └───────────┘  └─────────────┘  └────────────┘
+                                                                     │
+                                                      ┌──────────────┼──────────┐
+                                                      │              │          │
+                                                 Overpass API   Baza Azbestowa  Mapbox
+                                                 (budynki OSM)  (WMS GeoServer) (geocoding)
+</div></code></pre>
+<h3 id="monorepo-pnpm-workspaces">Monorepo (pnpm workspaces)</h3>
+<pre class="hljs"><code><div>packages/
+├── database/       # Prisma schema + MySQL client (source of truth typów)
+├── validation/     # Zod schemas (HTTP request/response validation)
+├── backend/        # Express API + business logic
+└── frontend/       # Next.js App Router + Leaflet map
+</div></code></pre>
+<hr>
+<h2 id="%F0%9F%94%A7-wykorzystane-technologie-i-zasoby">🔧 Wykorzystane Technologie i Zasoby</h2>
+<h3 id="stack-technologiczny">Stack Technologiczny</h3>
+<table>
+<thead>
+<tr>
+<th>Warstwa</th>
+<th>Technologia</th>
+<th>Wersja</th>
+<th>Uzasadnienie</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Backend Runtime</strong></td>
+<td>Node.js</td>
+<td>20 LTS</td>
+<td>Stabilna, long-term support</td>
+</tr>
+<tr>
+<td><strong>Backend Framework</strong></td>
+<td>Express.js</td>
+<td>4.18</td>
+<td>Minimalistyczny, szybki setup</td>
+</tr>
+<tr>
+<td><strong>Database</strong></td>
+<td>MySQL</td>
+<td>8.0</td>
+<td>Relacyjna + spatial indexes</td>
+</tr>
+<tr>
+<td><strong>ORM</strong></td>
+<td>Prisma</td>
+<td>5.x</td>
+<td>Type-safe queries, migracje</td>
+</tr>
+<tr>
+<td><strong>Validation</strong></td>
+<td>Zod</td>
+<td>3.22</td>
+<td>Runtime + compile-time safety</td>
+</tr>
+<tr>
+<td><strong>Frontend Framework</strong></td>
+<td>Next.js</td>
+<td>16</td>
+<td>App Router, RSC, SSR</td>
+</tr>
+<tr>
+<td><strong>State Management</strong></td>
+<td>React Query</td>
+<td>5.x</td>
+<td>Cache, optimistic updates</td>
+</tr>
+<tr>
+<td><strong>Map Engine</strong></td>
+<td>Leaflet</td>
+<td>1.9</td>
+<td>Open-source, lightweight</td>
+</tr>
+<tr>
+<td><strong>Styling</strong></td>
+<td>Tailwind CSS</td>
+<td>4.x</td>
+<td>Utility-first, rapid dev</td>
+</tr>
+<tr>
+<td><strong>ML Runtime</strong></td>
+<td>Python FastAPI + ONNX</td>
+<td>-</td>
+<td>Szybki inference modeli ML</td>
+</tr>
+</tbody>
+</table>
+<h3 id="zasoby-zewn%C4%99trzne">Zasoby Zewnętrzne</h3>
+<h4 id="1-openstreetmap-overpass-api">1. <strong>OpenStreetMap Overpass API</strong></h4>
+<p><strong>Endpoint:</strong> <code>https://overpass-api.de/api/interpreter</code>
+<strong>Cel:</strong> Pobieranie geometrii budynków (polygon coordinates)
+<strong>Integracja:</strong></p>
+<ul>
+<li>Zapytanie o budynki w danym obszarze (bounding box)</li>
+<li>Format danych: JSON (GeoJSON-compatible)</li>
+<li>Optymalizacja: Caching w bazie MySQL (unikanie powtórnych zapytań)</li>
+</ul>
+<h4 id="2-baza-azbestowa-geoserver-wms">2. <strong>Baza Azbestowa (GeoServer WMS)</strong></h4>
+<p><strong>Endpoint:</strong> <code>https://esip.bazaazbestowa.gov.pl/GeoServerProxy</code>
+<strong>Cel:</strong> Weryfikacja czy budynek znajduje się w oficjalnej bazie azbestowej
+<strong>Metoda:</strong> Web Map Service (WMS)
+<strong>Integracja:</strong></p>
+<ul>
+<li>Pobieranie warstwy WMS dla obszaru budynku</li>
+<li>Analiza pikseli charakterystycznego koloru azbestu (zielony #2c8900 ± tolerancja)</li>
+<li>Sprawdzenie czy piksele azbestu znajdują się wewnątrz geometrii budynku (point-in-polygon)</li>
+<li>Wynik: Potwierdzenie lub brak azbestu</li>
+</ul>
+<h4 id="3-mapbox-geocoding-api">3. <strong>Mapbox Geocoding API</strong></h4>
+<p><strong>Endpoint:</strong> <code>https://api.mapbox.com/geocoding/v5/</code>
+<strong>Cel:</strong></p>
+<ul>
+<li>Forward geocoding (adres → współrzędne)</li>
+<li>Batch reverse geocoding (współrzędne → adresy)</li>
+</ul>
+<p><strong>Możliwości:</strong></p>
+<ul>
+<li>Wyszukiwanie miejsc po nazwie</li>
+<li>Reverse geocoding (współrzędne → adres)</li>
+<li>Batch API (do 1000 lokalizacji naraz)</li>
+</ul>
+<p><strong>Wykorzystanie:</strong></p>
+<ul>
+<li>Wyszukiwarka adresów w interfejsie użytkownika</li>
+<li>Automatyczne pobieranie adresów dla wykrytych budynków</li>
+</ul>
+<h4 id="4-python-ml-service-custom">4. <strong>Python ML Service (Custom)</strong></h4>
+<p><strong>Port:</strong> <code>8000</code> (FastAPI)
+<strong>Model:</strong> ONNX Runtime (asbestos_net.onnx)
+<strong>Endpoint:</strong> <code>POST /predict</code>
+<strong>Input:</strong> Współrzędne polygonu budynku
+<strong>Output:</strong> Predykcja czy budynek potencjalnie zawiera azbest (true/false/null)
+<strong>Timeout:</strong> 5s (fallback do null przy błędzie)</p>
+<hr>
+<h2 id="%F0%9F%92%BE-model-danych">💾 Model Danych</h2>
+<h3 id="struktura-bazy-danych-building">Struktura Bazy Danych (Building)</h3>
+<p><strong>Główne pola:</strong></p>
+<ul>
+<li><strong>ID:</strong> Unikalny identyfikator (CUID)</li>
+<li><strong>Geometria:</strong> Polygon (współrzędne GeoJSON) + centroid (lng, lat)</li>
+<li><strong>Status azbestu:</strong>
+<ul>
+<li><code>isAsbestos</code> - z oficjalnej bazy</li>
+<li><code>isPotentiallyAsbestos</code> - predykcja ML (może być null)</li>
+</ul>
+</li>
+<li><strong>Metadane:</strong> createdAt, updatedAt</li>
+</ul>
+<p><strong>Optymalizacje:</strong></p>
+<ul>
+<li><strong>Spatial indexes</strong> na centroid → szybkie bbox queries (&lt;100ms)</li>
+<li><strong>Deduplikacja</strong> budynków (tolerance 0.0001° = ~11m)</li>
+<li><strong>Connection pooling</strong> (10 connections)</li>
+<li><strong>Prepared statements</strong> (Prisma ORM)</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%94%84-przep%C5%82yw-danych-user-flow">🔄 Przepływ Danych (User Flow)</h2>
+<h3 id="scenariusz-u%C5%BCytkownik-skanuje-obszar-na-mapie">Scenariusz: Użytkownik skanuje obszar na mapie</h3>
+<pre class="hljs"><code><div>1. USER: Zaznacza prostokąt na mapie (leaflet-draw)
+           ↓
+2. FRONTEND: POST /api/bbox { ne: {lat,lng}, sw: {lat,lng} }
+           ↓
+3. BACKEND: Sprawdza cache w MySQL
+   ├─ Budynek istnieje → zwróć z bazy (FAST PATH)
+   └─ Budynek nowy → wykonaj kroki 4-6 (SLOW PATH)
+           ↓
+4. OVERPASS API: Pobierz geometrie budynków w bbox
+   - Request: Overpass QL query
+   - Response: Array of building polygons
+           ↓
+5. BAZA AZBESTOWA: Dla każdego budynku
+   - Fetch WMS tile dla bbox budynku
+   - Analiza pikseli (#2c8900)
+   - Point-in-polygon → isAsbestos: boolean
+           ↓
+6. ML SERVICE: Dla budynków bez azbestu
+   - POST /predict z polygon
+   - Response: isPotentiallyAsbestos: boolean | null
+   - Timeout: 5s → null
+           ↓
+7. SAVE TO MYSQL: Zapisz wszystkie budynki
+           ↓
+8. RESPONSE: Zwróć { buildings[], stats }
+           ↓
+9. FRONTEND: Renderuj
+   - Budynki na mapie (kolorowane wg statusu)
+   - Panel statystyk (total, azbest, potencjalny, czysty)
+   - Export PDF (jsPDF + autoTable)
+</div></code></pre>
+<p><strong>Performance:</strong></p>
+<ul>
+<li>Cache hit: <strong>&lt;100ms</strong></li>
+<li>New area (50 buildings): <strong>5-10s</strong></li>
+<li>ML prediction: <strong>&lt;5s</strong> (z timeoutem)</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%8E%AF-kluczowe-funkcjonalno%C5%9Bci">🎯 Kluczowe Funkcjonalności</h2>
+<h3 id="1-interaktywna-mapa-leaflet">1. Interaktywna Mapa (Leaflet)</h3>
+<ul>
+<li><strong>Rectangle drawing:</strong> Zaznaczanie obszarów do skanowania</li>
+<li><strong>Validation:</strong> Max ~2km × 2km (0.01 deg² bbox area)</li>
+<li><strong>Color coding:</strong>
+<ul>
+<li>🔴 <strong>Czerwony:</strong> Potwierdzony azbest (oficjalna baza)</li>
+<li>🟠 <strong>Pomarańczowy:</strong> Podejrzany azbest (predykcja ML)</li>
+<li>🟢 <strong>Zielony:</strong> Czysty budynek</li>
+<li>⚪ <strong>Szary:</strong> Nieznany status (ML nie sprawdził)</li>
+</ul>
+</li>
+<li><strong>Popups:</strong> Szczegóły budynku (status, adres, ID)</li>
+</ul>
+<h3 id="2-panel-statystyk">2. Panel Statystyk</h3>
+<ul>
+<li><strong>Liczniki:</strong> Total / Azbest / Potencjalny / Czysty / Nieznany</li>
+<li><strong>Wykres kołowy:</strong> Recharts visualization</li>
+<li><strong>Export PDF:</strong> jsPDF + autoTable (raport z statystykami)</li>
+</ul>
+<h3 id="3-wyszukiwanie-adres%C3%B3w">3. Wyszukiwanie Adresów</h3>
+<ul>
+<li><strong>Forward geocoding:</strong> Wpisz adres → przenieś mapę</li>
+<li><strong>Batch reverse:</strong> Automatyczne adresy dla budynków</li>
+<li><strong>Debounced search:</strong> 500ms delay</li>
+</ul>
+<h3 id="4-optymalizacje-ux">4. Optymalizacje UX</h3>
+<ul>
+<li><strong>React Query cache:</strong> 60s (minimalizacja API calls)</li>
+<li><strong>Optimistic updates:</strong> UI update przed API response</li>
+<li><strong>Loading states:</strong> Szkielety, spinnery</li>
+<li><strong>Error handling:</strong> Toast notifications (react-hot-toast)</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%9A%80-deployment--infrastructure">🚀 Deployment &amp; Infrastructure</h2>
+<h3 id="konteneryzacja-docker-compose">Konteneryzacja (Docker Compose)</h3>
+<p>Aplikacja jest w pełni skonteneryzowana z wykorzystaniem Docker Compose:</p>
+<ul>
+<li><strong>Backend:</strong> Express.js API (port 3030)</li>
+<li><strong>Frontend:</strong> Next.js aplikacja (port 3031)</li>
+<li><strong>ML Service:</strong> Python FastAPI z ONNX (port 3032)</li>
+</ul>
+<p><strong>Dostępne serwisy po wdrożeniu:</strong></p>
+<ul>
+<li>Backend API (port 3030)</li>
+<li>Frontend aplikacja (port 3031)</li>
+<li>ML Service (port 3032)</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%93%8A-metryki-projektu">📊 Metryki Projektu</h2>
+<h3 id="performance">Performance</h3>
+<ul>
+<li><strong>Cache hit query:</strong> &lt;100ms</li>
+<li><strong>New area scan (50 bldg):</strong> 5-10s</li>
+<li><strong>ML inference:</strong> &lt;5s (per building)</li>
+<li><strong>Database connections:</strong> 10 (pool)</li>
+<li><strong>Docker build time:</strong> ~3 min (full)</li>
+</ul>
+<hr>
+<h2 id="%F0%9F%92%A1-innowacje-i-warto%C5%9B%C4%87">💡 Innowacje i Wartość</h2>
+<h3 id="kluczowe-innowacje">Kluczowe innowacje</h3>
+<ol>
+<li><strong>🧠 Hybrid Detection:</strong> Oficjalna baza + ML = maksymalne pokrycie</li>
+<li><strong>🚀 Smart Caching:</strong> MySQL → zero duplikatów API calls</li>
+<li><strong>🎨 Visual Clarity:</strong> Kolorystyka (czerwony/pomarańczowy/zielony)</li>
+<li><strong>📦 Monorepo + Type Safety:</strong> Shared types → brak desynchronizacji</li>
+<li><strong>🔗 Contract-First API:</strong> OpenAPI → auto-generated client</li>
+</ol>
+<h3 id="warto%C5%9B%C4%87-dla-u%C5%BCytkownika-ko%C5%84cowego">Wartość dla użytkownika końcowego</h3>
+<ul>
+<li><strong>Automatyzacja:</strong> Zamiast ręcznej analizy map</li>
+<li><strong>Szybkość:</strong> Skanowanie 50 budynków w ~10s</li>
+<li><strong>Dokładność:</strong> Oficjalna baza + ML validation</li>
+<li><strong>Raportowanie:</strong> Export PDF dla urzędów</li>
+<li><strong>Skalowalność:</strong> Cache → kolejne skanowania tego samego obszaru &lt;100ms</li>
+</ul>
+
+</body>
+</html>

@@ -1,5 +1,13 @@
 # 🏗️ System Detekcji Azbestu - Dokumentacja Projektu
 
+## Zdjęcia
+
+![Ekran Główny](assets/main.png)
+
+![Ładowanie](assets/loading.png)
+
+![Raport obszaru](assets/report.png)
+
 ## 📋 Opis Rozwiązania
 
 **Aplikacja webowa wspierająca urzędników w identyfikacji budynków z dachami azbestowymi** poprzez inteligentne połączenie oficjalnej bazy azbestowej z predykcją opartą o uczenie maszynowe.
@@ -9,10 +17,10 @@ Brak narzędzi do efektywnego mapowania budynków z azbestem na dużych obszarac
 
 ### Rozwiązanie
 Interaktywna mapa pozwalająca na automatyczne skanowanie obszarów z:
-- ✅ Weryfikacją w oficjalnej bazie azbestowej (gov.pl)
-- ✅ Predykcją ML dla budynków nieznanych
-- ✅ Wizualizacją kolorystyczną (czerwony=azbest, pomarańczowy=ML, zielony=czysty)
-- ✅ Statystykami i exportem do PDF
+- Weryfikacją w oficjalnej bazie azbestowej (gov.pl)
+- Predykcją ML dla budynków nieznanych
+- Wizualizacją kolorystyczną (czerwony=azbest, pomarańczowy=potrncjalny azbest przez ML, zielony=czysty)
+- Statystykami i exportem do PDF
 
 ---
 
@@ -50,11 +58,6 @@ packages/
 └── frontend/       # Next.js App Router + Leaflet map
 ```
 
-**Filozofia typów:**
-- **Prisma Client** = source of truth dla entity types
-- **Zod** = runtime validation HTTP layer
-- **OpenAPI 3.0** = kontrakt API → auto-generated client (hey-api)
-
 ---
 
 ## 🔧 Wykorzystane Technologie i Zasoby
@@ -80,33 +83,19 @@ packages/
 **Endpoint:** `https://overpass-api.de/api/interpreter`
 **Cel:** Pobieranie geometrii budynków (polygon coordinates)
 **Integracja:**
-- Query: `way["building"](bbox)`
-- Format: JSON (GeoJSON-compatible)
-- Limit: Rate limiting → caching w MySQL
-
-**Przykład zapytania:**
-```xml
-[out:json][timeout:25];
-way["building"](52.12,20.47,52.13,20.48);
-out geom;
-```
+- Zapytanie o budynki w danym obszarze (bounding box)
+- Format danych: JSON (GeoJSON-compatible)
+- Optymalizacja: Caching w bazie MySQL (unikanie powtórnych zapytań)
 
 #### 2. **Baza Azbestowa (GeoServer WMS)**
 **Endpoint:** `https://esip.bazaazbestowa.gov.pl/GeoServerProxy`
 **Cel:** Weryfikacja czy budynek znajduje się w oficjalnej bazie azbestowej
-**Metoda:** WMS GetMap
+**Metoda:** Web Map Service (WMS)
 **Integracja:**
-- Fetch WMS layer dla bbox budynku
-- Analiza pikseli koloru azbestu (`#2c8900` ± tolerance)
-- Point-in-polygon check (piksele vs. geometria budynku)
-- Wynik: `isAsbestos: boolean`
-
-**Parametry WMS:**
-```
-LAYERS=budynki_z_azbestem
-FORMAT=image/png
-BBOX={minLon},{minLat},{maxLon},{maxLat}
-```
+- Pobieranie warstwy WMS dla obszaru budynku
+- Analiza pikseli charakterystycznego koloru azbestu (zielony #2c8900 ± tolerancja)
+- Sprawdzenie czy piksele azbestu znajdują się wewnątrz geometrii budynku (point-in-polygon)
+- Wynik: Potwierdzenie lub brak azbestu
 
 #### 3. **Mapbox Geocoding API**
 **Endpoint:** `https://api.mapbox.com/geocoding/v5/`
@@ -114,66 +103,36 @@ BBOX={minLon},{minLat},{maxLon},{maxLat}
 - Forward geocoding (adres → współrzędne)
 - Batch reverse geocoding (współrzędne → adresy)
 
-**Features:**
-- `/mapbox.places/{query}.json` - wyszukiwanie miejsc
-- `/mapbox.places-permanent/{lng},{lat}.json` - reverse geocoding
-- Batch API (max 1000 coordinates/request)
+**Możliwości:**
+- Wyszukiwanie miejsc po nazwie
+- Reverse geocoding (współrzędne → adres)
+- Batch API (do 1000 lokalizacji naraz)
 
 **Wykorzystanie:**
-- Wyszukiwanie adresów w UI
-- Automatyczne pobieranie adresów dla budynków (batch)
+- Wyszukiwarka adresów w interfejsie użytkownika
+- Automatyczne pobieranie adresów dla wykrytych budynków
 
 #### 4. **Python ML Service (Custom)**
 **Port:** `8000` (FastAPI)
 **Model:** ONNX Runtime (asbestos_net.onnx)
 **Endpoint:** `POST /predict`
-
-**Input:**
-```json
-{
-  "polygon": [[20.471, 52.123], [20.472, 52.124], ...]
-}
-```
-
-**Output:**
-```json
-{
-  "isPotentiallyAsbestos": true | false | null
-}
-```
-
+**Input:** Współrzędne polygonu budynku
+**Output:** Predykcja czy budynek potencjalnie zawiera azbest (true/false/null)
 **Timeout:** 5s (fallback do null przy błędzie)
 
 ---
 
 ## 💾 Model Danych
 
-### Prisma Schema
+### Struktura Bazy Danych (Building)
 
-```prisma
-model Building {
-  id        String   @id @default(cuid())
-
-  // Geometria budynku
-  polygon     Json      // Array[[lng, lat], ...] - GeoJSON compatible
-  centroidLng Float     // Centroid dla spatial queries
-  centroidLat Float
-
-  // Status azbestu
-  isAsbestos            Boolean   // Z oficjalnej bazy azbestowej
-  isPotentiallyAsbestos Boolean?  // Predykcja ML (null = nie sprawdzono)
-
-  // Metadane
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Indeksy dla wydajności
-  @@index([centroidLng, centroidLat])  // Spatial bbox queries
-  @@index([isAsbestos])
-  @@index([isPotentiallyAsbestos])
-  @@index([updatedAt])
-}
-```
+**Główne pola:**
+- **ID:** Unikalny identyfikator (CUID)
+- **Geometria:** Polygon (współrzędne GeoJSON) + centroid (lng, lat)
+- **Status azbestu:**
+  - `isAsbestos` - z oficjalnej bazy
+  - `isPotentiallyAsbestos` - predykcja ML (może być null)
+- **Metadane:** createdAt, updatedAt
 
 **Optymalizacje:**
 - **Spatial indexes** na centroid → szybkie bbox queries (<100ms)
@@ -233,10 +192,10 @@ model Building {
 - **Rectangle drawing:** Zaznaczanie obszarów do skanowania
 - **Validation:** Max ~2km × 2km (0.01 deg² bbox area)
 - **Color coding:**
-  - 🔴 **Czerwony:** `isAsbestos = true` (oficjalna baza)
-  - 🟠 **Pomarańczowy:** `isPotentiallyAsbestos = true` (ML)
-  - 🟢 **Zielony:** clean (obie false)
-  - ⚪ **Szary:** unknown (ML nie sprawdził)
+  - 🔴 **Czerwony:** Potwierdzony azbest (oficjalna baza)
+  - 🟠 **Pomarańczowy:** Podejrzany azbest (predykcja ML)
+  - 🟢 **Zielony:** Czysty budynek
+  - ⚪ **Szary:** Nieznany status (ML nie sprawdził)
 - **Popups:** Szczegóły budynku (status, adres, ID)
 
 ### 2. Panel Statystyk
@@ -259,86 +218,21 @@ model Building {
 
 ## 🚀 Deployment & Infrastructure
 
-### Docker Compose (Production)
+### Konteneryzacja (Docker Compose)
 
-```yaml
-services:
-  backend:
-    build:
-      context: .
-      dockerfile: docker/backend.Dockerfile
-    ports: ["3030:3030"]
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
-      MAPBOX_ACCESS_TOKEN: ${MAPBOX_TOKEN}
-      ML_SERVICE_URL: http://ml-service:8000
+Aplikacja jest w pełni skonteneryzowana z wykorzystaniem Docker Compose:
+- **Backend:** Express.js API (port 3030)
+- **Frontend:** Next.js aplikacja (port 3031)
+- **ML Service:** Python FastAPI z ONNX (port 3032)
 
-  frontend:
-    build:
-      dockerfile: docker/frontend.Dockerfile
-    ports: ["3031:3031"]
-    environment:
-      NEXT_PUBLIC_API_URL: http://backend:3030/api
-
-  ml-service:
-    build: ./packages/ml-service
-    ports: ["3032:8000"]
-    volumes:
-      - ./artifacts/asbestos_net.onnx:/app/model.onnx:ro
-
-  mysql:
-    image: mysql:8.0
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-    volumes:
-      - mysql_data:/var/lib/mysql
-```
-
-### Build Process
-1. **Monorepo install:** `pnpm install` (workspace dependencies)
-2. **Generate Prisma Client:** `prisma generate`
-3. **Generate API Client:** `openapi-ts` (hey-api z spec)
-4. **Build packages:** Backend (tsc) + Frontend (next build)
-5. **Database migration:** `prisma migrate deploy`
-6. **Multi-stage Docker:** Minimize image size
-
-**Deployment targets:**
-- Backend: `http://host:3030`
-- Frontend: `http://host:3031`
-- ML Service: `http://host:3032`
-
----
-
-## 🔐 Bezpieczeństwo
-
-| Warstwa | Implementacja |
-|---------|---------------|
-| **Input Validation** | Zod schemas (wszystkie endpointy) |
-| **SQL Injection** | Prisma ORM (parameterized queries) |
-| **XSS Protection** | React auto-escaping + Content Security Policy |
-| **CORS** | Konfiguracja Express middleware |
-| **Environment Variables** | `.env` files (gitignored) |
-| **Type Safety** | TypeScript strict mode + Prisma types |
-| **Error Handling** | Global middleware (unified format) |
-
-**TODO dla produkcji:**
-- [ ] Authentication (OAuth2/JWT)
-- [ ] Rate limiting (Express middleware)
-- [ ] HTTPS enforcement
-- [ ] Logging (Winston/Pino)
+**Dostępne serwisy po wdrożeniu:**
+- Backend API (port 3030)
+- Frontend aplikacja (port 3031)
+- ML Service (port 3032)
 
 ---
 
 ## 📊 Metryki Projektu
-
-### Techniczne
-- **Packages:** 4 (database, validation, backend, frontend)
-- **LOC Backend:** ~1,500 TypeScript
-- **LOC Frontend:** ~2,000 TypeScript + React
-- **API Endpoints:** 4 (bbox, building, geocode, batch-geocode)
-- **Database Tables:** 1 (Building) + migrations
-- **External APIs:** 4 (Overpass, Baza Azbestowa, Mapbox, ML)
 
 ### Performance
 - **Cache hit query:** <100ms
@@ -364,34 +258,3 @@ services:
 - **Dokładność:** Oficjalna baza + ML validation
 - **Raportowanie:** Export PDF dla urzędów
 - **Skalowalność:** Cache → kolejne skanowania tego samego obszaru <100ms
-
----
-
-## 📈 Możliwości Rozwoju
-
-**Planowane funkcjonalności:**
-- [ ] **Autentykacja:** OAuth2 dla urzędników
-- [ ] **Role-based access:** Admin vs. Viewer
-- [ ] **Historical tracking:** Timeline zmian statusu
-- [ ] **Batch processing:** Async jobs dla dużych obszarów (całe gminy)
-- [ ] **Real-time collaboration:** WebSockets (multi-user)
-- [ ] **Advanced ML:** CNN na satellite imagery (wyższa dokładność)
-- [ ] **Mobile app:** React Native wrapper
-- [ ] **PWA:** Offline mode (Service Workers)
-
----
-
-## 👥 Informacje o Projekcie
-
-**Hackathon:** BHL 2025
-**Timeline:** 24 godziny
-**Tech Stack Decision:** Modern monorepo (Next.js + Prisma) dla production-grade MVP
-
-**Dokumentacja techniczna:**
-- OpenAPI Spec: `/spec/openapi.yaml`
-- Prisma Schema: `/packages/database/prisma/schema.prisma`
-- README: `/Readme.md`
-
----
-
-_Dokumentacja projektu wygenerowana: 30.01.2025_
